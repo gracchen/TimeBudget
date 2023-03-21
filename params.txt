@@ -1,0 +1,3 @@
+piano,4
+sleep,8.5
+shower,0
