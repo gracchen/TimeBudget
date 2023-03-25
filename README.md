@@ -9,9 +9,13 @@ Download prototype.jar and run it.
 #### 3/24/2023:
 <img alt="YAP" src="https://i.imgur.com/m47GwfF.png">
 Reads school.txt (containing "name", difficulty/5, estimated hours to complete, deadline, and an optional "fixed" flag
+
 Puts it into array of entry objects holding all the above
+
 Custom comparator to sort array by #1 fixed always on top  #2 deadline #3 difficulty
+
 Toggle break mode (i.e. during school weeks or spring break?) to adjust budget
+
 - Reusable date formatter: formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
      - LocalDate-->str: formatter.format(date);
      - str-->LocalDate: LocalDate.parse(str, formatter);
