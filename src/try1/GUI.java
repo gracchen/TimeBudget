@@ -8,6 +8,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -21,8 +22,9 @@ import javax.swing.JLabel;
 
 public class GUI extends JFrame {
 	private List<LocalDate> week;
-	private List<Double> budgetB, budget; //break vs non-break budget
+	private List<Double> budgetB, budget, hrsLeft; //break vs non-break budget
 	private List<Entry> work;
+	private List<List<Integer>> it;
 	private JLabel msg;
 	private static final long serialVersionUID = 1L;
 	private File constFile, paramFile, schoolFile;
@@ -31,6 +33,8 @@ public class GUI extends JFrame {
 	private DateTimeFormatter formatter;
 	private JButton toggleBreak;
 	private boolean onBreak;
+	private int weekDayIdeal = 1;
+	private int weekEndIdeal = 6;
 	public GUI () {
 		super("TimeBudget");
 		pack();
@@ -53,7 +57,9 @@ public class GUI extends JFrame {
 					onBreak = !onBreak; //toggle bool
 					System.out.println(onBreak);
 					toggleBreak.setText(onBreak? "on break" : "off break");
+					distrAlg();
 					printBudget();
+					printDates();
 				}
 			}
 		);
@@ -72,13 +78,14 @@ public class GUI extends JFrame {
 		{
 			week.add(curr);
 			//System.out.println(consts[dayToIndex(curr.getDayOfWeek())]);
-			budget.set(i, budget.get(i) - daily - consts[dayToIndex(curr.getDayOfWeek())]);
-			System.out.println(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).format(curr) + ":" + curr.getDayOfWeek() + ":" + budget.get(i));
+			budget.set(i, budget.get(i) - daily - consts[dayToIndex(curr)]);
+			System.out.println(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + ":" + budget.get(i));
+			//System.out.println(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).format(curr) + ":" + curr.getDayOfWeek() + ":" + budget.get(i));
 			if (curr.getDayOfWeek() == DayOfWeek.SATURDAY) weekendBudget = budget.get(i);
 		}
 		
 		budgetB = new ArrayList<Double>(Collections.nCopies(7,weekendBudget));
-		
+
 		class CustomSort implements Comparator<Entry> { //MY FIRST JAVA CUSTOM SORT FUNC!
 			public int compare(Entry o1, Entry o2) {
 				if (o1.isFixed && !o2.isFixed) return -1; //(1) first make fixed event go to top
@@ -91,13 +98,14 @@ public class GUI extends JFrame {
 			}
 		}
 		
-		
 		Collections.sort(work, new CustomSort());
 		System.out.println("Name\t\tDifficulty Hrs\tDeadline\tFixed?");
 		for (int i = 0; i < work.size(); i++) //print sorted homework entries
 			System.out.println(work.get(i).toString());
+		
+		distrAlg();
+		printDates();
 	}
-	
 	
 	void printBudget() {
 		LocalDate curr = LocalDate.now();
@@ -112,7 +120,57 @@ public class GUI extends JFrame {
 		}
 	}
 
-	private int dayToIndex(DayOfWeek x) {
+	void printDates() {
+		System.out.println("printing dates, remaining budget out of max, assigned work");
+		if (onBreak) {
+			for (int i = 0; i < 7; i++)
+			{
+				System.out.print(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + "\n\t");
+				for (int j = 0; j < it.get(i).size(); j++) System.out.print(work.get(it.get(i).get(j)));
+				System.out.print("\n\t" + hrsLeft.get(i) + "h out of " + budgetB.get(i) + "h free\n\n");
+			}
+		}
+		else {
+			for (int i = 0; i < 7; i++)
+			{
+				System.out.print(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + "\n\t");
+				for (int j = 0; j < it.get(i).size(); j++) System.out.print(work.get(it.get(i).get(j)));
+				System.out.print("\n\t" + hrsLeft.get(i) + "h out of " + budget.get(i) + "h free\n\n");
+			}
+		
+		}
+	}
+	private void distrAlg() {	
+		if (onBreak) hrsLeft = new ArrayList<Double>(budgetB);
+		else hrsLeft = new ArrayList<Double>(budget);
+		it = new ArrayList<List<Integer>>(); //
+		
+		for (int i = 0; i < 7; i++)
+		{
+			ArrayList<Integer> temp = new ArrayList<Integer>();
+			it.add(temp);
+		}
+		
+		for (int i = 0; i < work.size(); i++) {
+			Entry curr = work.get(i);
+			System.out.println(formatter.format(curr.deadline) + ":" + ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline) + "days " + dayToIndex(curr.deadline));
+			long n = ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline);
+			if (n >= 0 && n < 7) {
+				//verify n is corresponding week index for curr.deadline System.out.println(formatter.format(curr.deadline) + "=?"+ formatter.format(week.get((int) n)));
+				if (curr.isFixed) 
+				{
+					it.get((int) n).add(i); //index of work assigned to date's list
+					hrsLeft.set((int) n, hrsLeft.get((int) n) - curr.hr);
+				}
+			}
+			
+		}
+
+		//weekDayIdeal
+		
+	}
+	private int dayToIndex(LocalDate y) {
+		DayOfWeek x = y.getDayOfWeek();
 		switch (x) { 
 		case MONDAY:
 			return 0;
