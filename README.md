@@ -6,6 +6,34 @@ System requisites: At least JRE version 9
 Download prototype.jar and run it.
 
 ## Latest updates:
+#### 3/25/2023:
+rudimentary scheduling algorithm fed sorted work entries
+- compares possible ideal days to assign (today til day before deadline)
+- if all days not enough hrs left to do it, force assign to deadline
+- if at least one day has enough hours, find best day (takes the least amt of time away from ideal leet+play time for that type of day (weekend/day))
+- ISSUE: won't break up tasks in the "forced" case, leading to negative hours left (chose the least negative, but still negative) even if possible to distribute between previous days without negative budgets.
+
+data structs hard to keep track, so here's run-down:
+- week: array of 7 LocalDates from today -> week from now
+- budget: array of 7 doubles (hrs) for global budget during classes, budget[0] = all monday's, budget[1] = tuesday's
+- budgetB: array of 7 doubles (hrs) for global budget during breaks
+- hrsLeft: array of 7 doubles (hrs) calculated from assigned work + budget/budgetB
+- work: array of Entry objects read from school.txt
+- assign: array of 7 lists of indexes, where assign[n] houses a list of work indexes assigned to the day that's n days from today.
+
+functions too:
+- int Ideal(LocalDate x) gives ideal remaining hrs for leetcode & play for LocalDate x (is x weekday or weekend?)
+- void printBudget() prints budget or budgetB for next 7 days 
+- void printDates() prints entire status of week, budget/B, and assigned work for each day in assign
+- private void distrAlg() recalculates hrsLeft and re-assigns work, called when toggle break button.
+- int dayToIndex(LocalDate y) converts date's day of week to corresponding index for budget[] to work
+- void readConstants(), readParams(), and readSchool() scans and stores txt data into useable data structures
+
+New used features: 
+- copy arraylist to arraylist: copy = new ArrayList<Double>(old)
+- List of a list: List<List<Integer>> a = new ArrayList<List<Integer>>(); 
+- get num days between two LocalDates: ChronoUnit.DAYS.between(a, b)
+
 #### 3/24/2023:
 <img alt="YAP" src="https://i.imgur.com/m47GwfF.png">
 Reads school.txt (containing "name", difficulty/5, estimated hours to complete, deadline, and an optional "fixed" flag

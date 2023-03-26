@@ -7,7 +7,6 @@ import java.io.FileNotFoundException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,7 +23,7 @@ public class GUI extends JFrame {
 	private List<LocalDate> week;
 	private List<Double> budgetB, budget, hrsLeft; //break vs non-break budget
 	private List<Entry> work;
-	private List<List<Integer>> it;
+	private List<List<Integer>> assign;
 	private JLabel msg;
 	private static final long serialVersionUID = 1L;
 	private File constFile, paramFile, schoolFile;
@@ -107,6 +106,12 @@ public class GUI extends JFrame {
 		printDates();
 	}
 	
+	int Ideal(LocalDate x) {
+		int y = dayToIndex(x);
+		if (y == 5 || y == 6) return weekEndIdeal;
+		return weekDayIdeal;
+	}
+	
 	void printBudget() {
 		LocalDate curr = LocalDate.now();
 		System.out.println("Date\tdayOfWeek  budget");
@@ -126,15 +131,15 @@ public class GUI extends JFrame {
 			for (int i = 0; i < 7; i++)
 			{
 				System.out.print(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + "\n\t");
-				for (int j = 0; j < it.get(i).size(); j++) System.out.print(work.get(it.get(i).get(j)));
+				for (int j = 0; j < assign.get(i).size(); j++) System.out.println(work.get(assign.get(i).get(j)));
 				System.out.print("\n\t" + hrsLeft.get(i) + "h out of " + budgetB.get(i) + "h free\n\n");
 			}
 		}
 		else {
 			for (int i = 0; i < 7; i++)
 			{
-				System.out.print(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + "\n\t");
-				for (int j = 0; j < it.get(i).size(); j++) System.out.print(work.get(it.get(i).get(j)));
+				System.out.print(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + "\n");
+				for (int j = 0; j < assign.get(i).size(); j++) System.out.println("\t" + work.get(assign.get(i).get(j)));
 				System.out.print("\n\t" + hrsLeft.get(i) + "h out of " + budget.get(i) + "h free\n\n");
 			}
 		
@@ -143,29 +148,62 @@ public class GUI extends JFrame {
 	private void distrAlg() {	
 		if (onBreak) hrsLeft = new ArrayList<Double>(budgetB);
 		else hrsLeft = new ArrayList<Double>(budget);
-		it = new ArrayList<List<Integer>>(); //
+		assign = new ArrayList<List<Integer>>(); //
 		
 		for (int i = 0; i < 7; i++)
 		{
 			ArrayList<Integer> temp = new ArrayList<Integer>();
-			it.add(temp);
+			assign.add(temp);
 		}
 		
+		for (int i = 0; i < 7; i++) System.out.println(hrsLeft.get(i));
 		for (int i = 0; i < work.size(); i++) {
 			Entry curr = work.get(i);
 			System.out.println(formatter.format(curr.deadline) + ":" + ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline) + "days " + dayToIndex(curr.deadline));
 			long n = ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline);
 			if (n >= 0 && n < 7) {
+				System.out.println("HI");
+				for (int p = 0; p < 7;p++) System.out.println(hrsLeft.get(p));
 				//verify n is corresponding week index for curr.deadline System.out.println(formatter.format(curr.deadline) + "=?"+ formatter.format(week.get((int) n)));
 				if (curr.isFixed) 
 				{
-					it.get((int) n).add(i); //index of work assigned to date's list
+					System.out.println("\tfixed");
+					assign.get((int) n).add(i); //index of work assigned to date n's list
 					hrsLeft.set((int) n, hrsLeft.get((int) n) - curr.hr);
+					
+				}
+				else {
+					int idealN = -1;
+					for (int j = 0; j < n; j++) //assign today? tmrw? day after? 
+					{
+						if (hrsLeft.get(j) - curr.hr >= 0)
+						{
+							if (idealN == -1) idealN = j;
+							else {
+								double id = hrsLeft.get(idealN) - curr.hr - Ideal(week.get(idealN));
+								double now = hrsLeft.get(j) - curr.hr - Ideal(week.get(j)); //budget if assigned to j AND do ideal leet+play for that weekday/end
+								if (now > id) idealN = j;
+							}
+						}
+					}
+					if (idealN == -1) //all dates before deadline no time even without leet+play
+					{ //forced to assign assign the day of deadline
+						System.out.println("\tforced");
+						assign.get((int) n).add(i); //index of work assigned to date n's list
+						hrsLeft.set((int) n, hrsLeft.get((int) n) - curr.hr);
+					}
+					else
+					{
+						System.out.println("\tideal" + idealN + curr.name);
+						assign.get(idealN).add(i); //index of work assigned to date idealN's list
+						System.out.println(assign.get(idealN));
+						hrsLeft.set(idealN, hrsLeft.get(idealN) - curr.hr);
+					}
 				}
 			}
 			
 		}
-
+		
 		//weekDayIdeal
 		
 	}
