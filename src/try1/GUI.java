@@ -34,6 +34,7 @@ public class GUI extends JFrame {
 	private boolean onBreak;
 	private int weekDayIdeal = 1;
 	private int weekEndIdeal = 6;
+	private int oldWorkSize;
 	public GUI () {
 		super("TimeBudget");
 		pack();
@@ -99,11 +100,15 @@ public class GUI extends JFrame {
 		
 		Collections.sort(work, new CustomSort());
 		System.out.println("Name\t\tDifficulty Hrs\tDeadline\tFixed?");
-		for (int i = 0; i < work.size(); i++) //print sorted homework entries
+		for (int i = 0; i < oldWorkSize; i++) //print sorted homework entries
 			System.out.println(work.get(i).toString());
 		
 		distrAlg();
 		printDates();
+		
+		System.out.println("Name\t\tDifficulty Hrs\tDeadline\tFixed?");
+		for (int i = 0; i < work.size(); i++) //print sorted homework entries
+			System.out.println(work.get(i).toString());
 	}
 	
 	int Ideal(LocalDate x) {
@@ -157,7 +162,8 @@ public class GUI extends JFrame {
 		}
 		
 		for (int i = 0; i < 7; i++) System.out.println(hrsLeft.get(i));
-		for (int i = 0; i < work.size(); i++) {
+		
+		for (int i = 0; i < oldWorkSize; i++) {
 			Entry curr = work.get(i);
 			System.out.println(formatter.format(curr.deadline) + ":" + ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline) + "days " + dayToIndex(curr.deadline));
 			long n = ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline);
@@ -174,6 +180,7 @@ public class GUI extends JFrame {
 				}
 				else {
 					int idealN = -1;
+					
 					for (int j = 0; j < n; j++) //assign today? tmrw? day after? 
 					{
 						if (hrsLeft.get(j) - curr.hr >= 0)
@@ -188,9 +195,40 @@ public class GUI extends JFrame {
 					}
 					if (idealN == -1) //all dates before deadline no time even without leet+play
 					{ //forced to assign assign the day of deadline
-						System.out.println("\tforced");
-						assign.get((int) n).add(i); //index of work assigned to date n's list
-						hrsLeft.set((int) n, hrsLeft.get((int) n) - curr.hr);
+									
+						System.out.println("\n\tforced");
+						if (hrsLeft.get((int) n) - curr.hr < 0) //if need to split bc deadline also not enough time
+						{
+							
+							//work.add(new Entry(work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //make copy of original entry at back of work[], cannot override original (for break toggle)
+							boolean doCont = true;
+							for (int j = 0; j < n && doCont; j++) //assign today? tmrw? day after? 
+							{
+								if (hrsLeft.get(j) > 0) //has some time to squeeze this task
+								{
+									System.out.println("hey! day "+  week.get(j) + " has hrs: " + hrsLeft.get(j));
+									if (work.get(work.size()-1).hr <= hrsLeft.get(j)) { //done! all parts fitted
+										System.out.println("it's okay, " + work.get(work.size()-1).name + " only needs " + work.get(work.size()-1).hr);
+										doCont = false;
+										assign.get(j).add(work.size()-1); //direct assign to day j
+										hrsLeft.set(j, hrsLeft.get(j) - work.get(work.size()-1).hr); //update hours of day j
+									}
+									else { //gotta do more splitting
+										work.add(new Entry(work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //copy
+										work.get(work.size()-2).hr = hrsLeft.get(j); //assign previous copy to day j
+										assign.get(j).add(work.size()-2);
+										
+										work.get(work.size()-1).hr -= hrsLeft.get(j); //save remaining portion of task in new copy
+										hrsLeft.set(j, 0.0); //which eats up all of day j's hrs left.
+										System.out.println("now: " + work.get(work.size()-2).hr + " and " + work.get(work.size()-1).hr);
+									}
+								}
+							}
+						}
+						else { //deadline only day enough time, so assign to deadline
+							assign.get((int) n).add(i); //index of work assigned to date n's list
+							hrsLeft.set((int) n, hrsLeft.get((int) n) - curr.hr);
+						}
 					}
 					else
 					{
@@ -296,6 +334,7 @@ public class GUI extends JFrame {
 				} catch (Exception e) {  };
 			}
 			getX.close();
+			oldWorkSize = work.size();
 			return;
 		}
 		return;
