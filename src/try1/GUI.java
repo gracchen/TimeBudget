@@ -60,6 +60,7 @@ public class GUI extends JFrame {
 					distrAlg();
 					printBudget();
 					printDates();
+					printWork();
 				}
 			}
 		);
@@ -79,7 +80,7 @@ public class GUI extends JFrame {
 			week.add(curr);
 			//System.out.println(consts[dayToIndex(curr.getDayOfWeek())]);
 			budget.set(i, budget.get(i) - daily - consts[dayToIndex(curr)]);
-			System.out.println(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + ":" + budget.get(i));
+			//System.out.println(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + ":" + budget.get(i));
 			//System.out.println(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).format(curr) + ":" + curr.getDayOfWeek() + ":" + budget.get(i));
 			if (curr.getDayOfWeek() == DayOfWeek.SATURDAY) weekendBudget = budget.get(i);
 		}
@@ -91,7 +92,7 @@ public class GUI extends JFrame {
 				if (o1.isFixed && !o2.isFixed) return -1; //(1) first make fixed event go to top
 				else if (!o1.isFixed && o2.isFixed) return 1; 
 				if (o1.deadline.isEqual(o2.deadline)) { //(3) by harder difficulty first
-					System.out.println(o1.deadline + "=" + o2.deadline);
+					//System.out.println(o1.deadline + "=" + o2.deadline);
 					return Double.compare(o2.diff,o1.diff);
 				}
 				return o1.deadline.compareTo(o2.deadline); //(2) sort by deadline
@@ -105,16 +106,26 @@ public class GUI extends JFrame {
 		
 		distrAlg();
 		printDates();
+		printWork();
 		
-		System.out.println("Name\t\tDifficulty Hrs\tDeadline\tFixed?");
-		for (int i = 0; i < work.size(); i++) //print sorted homework entries
-			System.out.println(work.get(i).toString());
 	}
 	
 	int Ideal(LocalDate x) {
 		int y = dayToIndex(x);
 		if (y == 5 || y == 6) return weekEndIdeal;
 		return weekDayIdeal;
+	}
+	
+	void printWork() {
+		System.out.println("Name\t\tDifficulty Hrs\tDeadline\tFixed?");
+		for (int i = 0; i < oldWorkSize; i++) //print sorted homework entries
+			System.out.println(work.get(i).toString());
+		
+		if (work.size() != oldWorkSize)
+			System.out.println("________________________");
+		
+		for (int i = oldWorkSize; i < work.size(); i++) //print sorted homework entries
+			System.out.println(work.get(i).toString());
 	}
 	
 	void printBudget() {
@@ -153,6 +164,9 @@ public class GUI extends JFrame {
 	private void distrAlg() {	
 		if (onBreak) hrsLeft = new ArrayList<Double>(budgetB);
 		else hrsLeft = new ArrayList<Double>(budget);
+		
+		work.subList(oldWorkSize, work.size()).clear(); //removes any copies of originally read work
+		//that was inserted after, from indexes oldWorkSize, oldWorkSize+1......work.size()-1
 		assign = new ArrayList<List<Integer>>(); //
 		
 		for (int i = 0; i < 7; i++)
@@ -161,15 +175,15 @@ public class GUI extends JFrame {
 			assign.add(temp);
 		}
 		
-		for (int i = 0; i < 7; i++) System.out.println(hrsLeft.get(i));
+		//for (int i = 0; i < 7; i++) System.out.println(hrsLeft.get(i));
 		
 		for (int i = 0; i < oldWorkSize; i++) {
 			Entry curr = work.get(i);
-			System.out.println(formatter.format(curr.deadline) + ":" + ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline) + "days " + dayToIndex(curr.deadline));
+			//System.out.println(formatter.format(curr.deadline) + ":" + ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline) + "days " + dayToIndex(curr.deadline));
 			long n = ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline);
 			if (n >= 0 && n < 7) {
-				System.out.println("HI");
-				for (int p = 0; p < 7;p++) System.out.println(hrsLeft.get(p));
+				//System.out.println("HI");
+				//for (int p = 0; p < 7;p++) System.out.println(hrsLeft.get(p));
 				//verify n is corresponding week index for curr.deadline System.out.println(formatter.format(curr.deadline) + "=?"+ formatter.format(week.get((int) n)));
 				if (curr.isFixed) 
 				{
@@ -196,11 +210,11 @@ public class GUI extends JFrame {
 					if (idealN == -1) //all dates before deadline no time even without leet+play
 					{ //forced to assign assign the day of deadline
 									
-						System.out.println("\n\tforced");
+						System.out.println("\n\tforcing: " + work.get(i) +"\n\t BEFORE:");
+						printDates();
 						if (hrsLeft.get((int) n) - curr.hr < 0) //if need to split bc deadline also not enough time
 						{
-							
-							//work.add(new Entry(work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //make copy of original entry at back of work[], cannot override original (for break toggle)
+							work.add(new Entry(work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //make copy of original entry at back of work[], cannot override original (for break toggle)
 							boolean doCont = true;
 							for (int j = 0; j < n && doCont; j++) //assign today? tmrw? day after? 
 							{
@@ -224,17 +238,25 @@ public class GUI extends JFrame {
 									}
 								}
 							}
+							if (doCont) //still need to assign remaining portion, last resort is to deadline
+							{
+								assign.get((int) n).add(work.size()-1); //index of remaining portion assigned to date n's list
+								hrsLeft.set((int) n, hrsLeft.get((int) n) - work.get(work.size()-1).hr); //subtract remain portion time from deadline hrsleft
+							}
 						}
 						else { //deadline only day enough time, so assign to deadline
 							assign.get((int) n).add(i); //index of work assigned to date n's list
 							hrsLeft.set((int) n, hrsLeft.get((int) n) - curr.hr);
 						}
+						
+						System.out.println("AFTER");
+						printDates();
 					}
 					else
 					{
 						System.out.println("\tideal" + idealN + curr.name);
 						assign.get(idealN).add(i); //index of work assigned to date idealN's list
-						System.out.println(assign.get(idealN));
+						//System.out.println(assign.get(idealN));
 						hrsLeft.set(idealN, hrsLeft.get(idealN) - curr.hr);
 					}
 				}
@@ -311,7 +333,7 @@ public class GUI extends JFrame {
 		}
 	}
 	private void readSchool() {
-		System.out.println("school.txt:");
+		//System.out.println("school.txt:");
 		Scanner getX = null;
 		
 		try {
