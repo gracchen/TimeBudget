@@ -1,7 +1,11 @@
 package try1;
 import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.time.DayOfWeek;
@@ -16,8 +20,12 @@ import java.util.List;
 import java.util.Scanner;
 
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JPanel;
 
 public class GUI extends JFrame {
 	private List<LocalDate> week;
@@ -35,99 +43,156 @@ public class GUI extends JFrame {
 	private int weekDayIdeal = 1;
 	private int weekEndIdeal = 6;
 	private int oldWorkSize;
+	private List<String> choices;
+	private JComboBox<String> drop;
+	private JPanel show;
+	private JLabel stats, leet, play;
+	private List<JCheckBox> checks;
+	
 	public GUI () {
 		super("TimeBudget");
 		pack();
 		setLocationRelativeTo(null);
 		setLayout(new FlowLayout());
-		onBreak = false;
-		formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+		onBreak = false; //default break mode
+		formatter = DateTimeFormatter.ofPattern("M/d/yyyy");
 		constFile = new File("constants.txt");
 		paramFile = new File("params.txt");
 		schoolFile = new File("school.txt");
 		consts = new double[7];
 		daily = 0;
-		msg = new JLabel("hi");
-		add(msg);
-		
-		toggleBreak = new JButton("off break");
-		toggleBreak.addActionListener(
-			new ActionListener() {
-				public void actionPerformed(ActionEvent e) {
-					onBreak = !onBreak; //toggle bool
-					System.out.println(onBreak);
-					toggleBreak.setText(onBreak? "on break" : "off break");
-					distrAlg();
-					printBudget();
-					printDates();
-					printWork();
-				}
-			}
-		);
-		
-		add(toggleBreak);
+
 		week = new LinkedList<LocalDate>();
 		budget = new ArrayList<Double>(Collections.nCopies(7,24.0));
 		work = new ArrayList<Entry>();
 		readConstants();
 		readParams();
 		readSchool();
-		
+
 		LocalDate curr = LocalDate.now();
 		double weekendBudget = 0.0;
+		choices = new ArrayList<String>();
+		choices.add("Today");
+		choices.add("Tomorrow");
 		for (int i = 0; i < 7; i++, curr = curr.plusDays(1))
 		{
 			week.add(curr);
-			//System.out.println(consts[dayToIndex(curr.getDayOfWeek())]);
 			budget.set(i, budget.get(i) - daily - consts[dayToIndex(curr)]);
-			//System.out.println(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + ":" + budget.get(i));
-			//System.out.println(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).format(curr) + ":" + curr.getDayOfWeek() + ":" + budget.get(i));
 			if (curr.getDayOfWeek() == DayOfWeek.SATURDAY) weekendBudget = budget.get(i);
+			if (i >= 2) choices.add((curr.getDayOfWeek()) + ", " + formatter.format(curr));
 		}
-		
+
 		budgetB = new ArrayList<Double>(Collections.nCopies(7,weekendBudget));
 
-		class CustomSort implements Comparator<Entry> { //MY FIRST JAVA CUSTOM SORT FUNC!
-			public int compare(Entry o1, Entry o2) {
-				if (o1.isFixed && !o2.isFixed) return -1; //(1) first make fixed event go to top
-				else if (!o1.isFixed && o2.isFixed) return 1; 
-				if (o1.deadline.isEqual(o2.deadline)) { //(3) by harder difficulty first
-					//System.out.println(o1.deadline + "=" + o2.deadline);
-					return Double.compare(o2.diff,o1.diff);
-				}
-				return o1.deadline.compareTo(o2.deadline); //(2) sort by deadline
-			}
-		}
-		
 		Collections.sort(work, new CustomSort());
 		System.out.println("Name\t\tDifficulty Hrs\tDeadline\tFixed?");
 		for (int i = 0; i < oldWorkSize; i++) //print sorted homework entries
 			System.out.println(work.get(i).toString());
-		
+
 		distrAlg();
 		printDates();
 		printWork();
+
+		//GUI PART!!!
+
+		msg = new JLabel("hi");
+		add(msg);
+
+		toggleBreak = new JButton("off break");
+		toggleBreak.addActionListener(
+				new ActionListener() {
+					public void actionPerformed(ActionEvent e) {
+						onBreak = !onBreak; //toggle bool
+						System.out.println(onBreak);
+						toggleBreak.setText(onBreak? "on break" : "off break");
+						distrAlg();
+						printBudget();
+						printDates();
+						printWork();
+						showDate(drop.getSelectedIndex()); //update
+					}
+				}
+				);
 		
+		
+		add(toggleBreak);
+		//DROPDOWN GUI:
+		drop = new JComboBox<String>(choices.toArray(new String[choices.size()])); //param = array of options
+		add(drop);
+		showDate(0); //default show today
+		drop.addItemListener(
+				new ItemListener() {
+					public void itemStateChanged(ItemEvent event) {
+						if(event.getStateChange() == ItemEvent.SELECTED)
+							showDate(drop.getSelectedIndex());
+					}
+				}
+			);
 	}
 	
+	void showDate(int index) { 
+		//shows both leetcode + play and assigned stuff
+		msg.setText(String.valueOf(index));
+		if (show != null) remove(show); //remove previous display
+		
+		show = new JPanel();
+		GridBagConstraints c = new GridBagConstraints();
+		show.setLayout(new GridBagLayout());
+		
+		add(show);
+		
+		c.fill = GridBagConstraints.HORIZONTAL;    //fill entire cell with text to center
+		c.gridwidth = 4; c.gridx = 0; c.gridy = 0;   //coords + width of msg element
+		checks = new ArrayList<JCheckBox>();
+		for (int i = 0; i < assign.get(index).size(); i++) {
+			checks.add(new JCheckBox(work.get(assign.get(index).get(i)).name + ", " + work.get(assign.get(index).get(i)).hr + "h"));
+			show.add(checks.get(checks.size()-1), c);
+			c.gridy++;
+		}
+		
+		stats = new JLabel(hrsLeft.get(index) + " out of " + (onBreak? budgetB.get(index) : budget.get(index)) + "hrs free"); 
+		show.add(stats, c);
+		if (hrsLeft.get(index) > 0)
+		{
+			c.gridy++;
+			leet = new JLabel(String.valueOf(hrsLeft.get(index) * 0.6) + "h for CS");
+			show.add(leet,c);
+			c.gridy++;
+			play = new JLabel(String.valueOf(hrsLeft.get(index) * 0.4) + "h for play");
+			show.add(play,c);
+		}	
+	}
+
+	class CustomSort implements Comparator<Entry> { //MY FIRST JAVA CUSTOM SORT FUNC!
+		public int compare(Entry o1, Entry o2) {
+			if (o1.isFixed && !o2.isFixed) return -1; //(1) first make fixed event go to top
+			else if (!o1.isFixed && o2.isFixed) return 1; 
+			if (o1.deadline.isEqual(o2.deadline)) { //(3) by harder difficulty first
+				//System.out.println(o1.deadline + "=" + o2.deadline);
+				return Double.compare(o2.diff,o1.diff);
+			}
+			return o1.deadline.compareTo(o2.deadline); //(2) sort by deadline
+		}
+	}
+
 	int Ideal(LocalDate x) {
 		int y = dayToIndex(x);
 		if (y == 5 || y == 6) return weekEndIdeal;
 		return weekDayIdeal;
 	}
-	
+
 	void printWork() {
 		System.out.println("Name\t\tDifficulty Hrs\tDeadline\tFixed?");
 		for (int i = 0; i < oldWorkSize; i++) //print sorted homework entries
 			System.out.println(work.get(i).toString());
-		
+
 		if (work.size() != oldWorkSize)
 			System.out.println("________________________");
-		
+
 		for (int i = oldWorkSize; i < work.size(); i++) //print sorted homework entries
 			System.out.println(work.get(i).toString());
 	}
-	
+
 	void printBudget() {
 		LocalDate curr = LocalDate.now();
 		System.out.println("Date\tdayOfWeek  budget");
@@ -158,25 +223,25 @@ public class GUI extends JFrame {
 				for (int j = 0; j < assign.get(i).size(); j++) System.out.println("\t" + work.get(assign.get(i).get(j)));
 				System.out.print("\n\t" + hrsLeft.get(i) + "h out of " + budget.get(i) + "h free\n\n");
 			}
-		
+
 		}
 	}
 	private void distrAlg() {	
 		if (onBreak) hrsLeft = new ArrayList<Double>(budgetB);
 		else hrsLeft = new ArrayList<Double>(budget);
-		
+
 		work.subList(oldWorkSize, work.size()).clear(); //removes any copies of originally read work
 		//that was inserted after, from indexes oldWorkSize, oldWorkSize+1......work.size()-1
 		assign = new ArrayList<List<Integer>>(); //
-		
+
 		for (int i = 0; i < 7; i++)
 		{
 			ArrayList<Integer> temp = new ArrayList<Integer>();
 			assign.add(temp);
 		}
-		
+
 		//for (int i = 0; i < 7; i++) System.out.println(hrsLeft.get(i));
-		
+
 		for (int i = 0; i < oldWorkSize; i++) {
 			Entry curr = work.get(i);
 			//System.out.println(formatter.format(curr.deadline) + ":" + ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline) + "days " + dayToIndex(curr.deadline));
@@ -190,11 +255,11 @@ public class GUI extends JFrame {
 					System.out.println("\tfixed");
 					assign.get((int) n).add(i); //index of work assigned to date n's list
 					hrsLeft.set((int) n, hrsLeft.get((int) n) - curr.hr);
-					
+
 				}
 				else {
 					int idealN = -1;
-					
+
 					for (int j = 0; j < n; j++) //assign today? tmrw? day after? 
 					{
 						if (hrsLeft.get(j) - curr.hr >= 0)
@@ -209,7 +274,7 @@ public class GUI extends JFrame {
 					}
 					if (idealN == -1) //all dates before deadline no time even without leet+play
 					{ //forced to assign assign the day of deadline
-									
+
 						System.out.println("\n\tforcing: " + work.get(i) +"\n\t BEFORE:");
 						printDates();
 						if (hrsLeft.get((int) n) - curr.hr < 0) //if need to split bc deadline also not enough time
@@ -231,7 +296,7 @@ public class GUI extends JFrame {
 										work.add(new Entry(work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //copy
 										work.get(work.size()-2).hr = hrsLeft.get(j); //assign previous copy to day j
 										assign.get(j).add(work.size()-2);
-										
+
 										work.get(work.size()-1).hr -= hrsLeft.get(j); //save remaining portion of task in new copy
 										hrsLeft.set(j, 0.0); //which eats up all of day j's hrs left.
 										System.out.println("now: " + work.get(work.size()-2).hr + " and " + work.get(work.size()-1).hr);
@@ -248,7 +313,7 @@ public class GUI extends JFrame {
 							assign.get((int) n).add(i); //index of work assigned to date n's list
 							hrsLeft.set((int) n, hrsLeft.get((int) n) - curr.hr);
 						}
-						
+
 						System.out.println("AFTER");
 						printDates();
 					}
@@ -261,11 +326,11 @@ public class GUI extends JFrame {
 					}
 				}
 			}
-			
+
 		}
-		
+
 		//weekDayIdeal
-		
+
 	}
 	private int dayToIndex(LocalDate y) {
 		DayOfWeek x = y.getDayOfWeek();
@@ -335,11 +400,11 @@ public class GUI extends JFrame {
 	private void readSchool() {
 		//System.out.println("school.txt:");
 		Scanner getX = null;
-		
+
 		try {
 			getX = new Scanner(schoolFile);
 		} catch (FileNotFoundException e1) { e1.printStackTrace(); }
-		
+
 		if (getX != null)
 		{
 			while(getX.hasNextLine())
@@ -374,7 +439,7 @@ public class GUI extends JFrame {
 			deadline = de;
 			isFixed = t;
 		}
-		
+
 		public String toString() {
 			return String.format(name + "\t" + diff + "\t" + hr + "\t" + formatter.format(deadline) + "\t" + isFixed);
 		}
