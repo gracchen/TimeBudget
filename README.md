@@ -6,6 +6,26 @@ System requisites: At least JRE version 9
 Download prototype.jar and run it.
 
 ## Latest updates:
+#### 3/26/2023: sudden burst of unforseen complexities, getting intimidated
+added: 
+- splitting algorithm (introduces complexities of marking which partitions as complete, where to store dupes and how to keep track which is parent/child of which, etc)
+- rudimentary gui for displaying assigned tasks as dummy checklists & tabs
+- in middle of figuring how to save what before exiting, see below points:
+
+complexities/questions/toDos:
+- once user checks task, when to commit "done"? before exiting? straight away? because hard to uncommit.
+     - if commit before exit, save index of work entries to delete at end? need custom exiting method call...more complexity. what if app not exit properly/crashed?
+     - if auto detects unchecked event past deadline, what to do? auto set as done?
+     - if user checks a spilt component of parent, have to merge back together splits, sum up unchecked durations, store back in 1 original entry? 
+     - done: purely append (cheaper than reading globally done list and copying)?
+     - data structure to represent stars????  display table of done? how far back?? $$$$$$$costly
+
+- future million features:
+     - implement functioning tasks tab: user add delete work entries, settings, more insane complexity
+     - after that is proven correct, how to make every write and read a binary file not txt??? 
+     - settings: fixed number/type of constants/params? or ability to add like tasks? 
+     - don't even get me started on online database features or what if task taking way longer than expected how to reflect on app??
+
 #### 3/25/2023:
 rudimentary scheduling algorithm fed sorted work entries
 - compares possible ideal days to assign (today til day before deadline)

@@ -8,6 +8,8 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -15,6 +17,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Formatter;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
@@ -24,14 +27,17 @@ import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JPanel;
+import javax.swing.JTabbedPane;
 
 public class GUI extends JFrame {
+	private JPanel home, tasks, settings;
 	private List<LocalDate> week;
 	private List<Double> budgetB, budget, hrsLeft; //break vs non-break budget
 	private List<Entry> work;
 	private List<List<Integer>> assign;
+	private List<Integer> done; //list of entry indexes marked done, to be deleted upon closing app
+	private List<List<Integer>> split; //list of entry indexes that were split (1st elem = original, rest is split children)
 	private JLabel msg;
 	private static final long serialVersionUID = 1L;
 	private File constFile, paramFile, schoolFile;
@@ -48,17 +54,30 @@ public class GUI extends JFrame {
 	private JPanel show;
 	private JLabel stats, leet, play;
 	private List<JCheckBox> checks;
+	private JTabbedPane tabPane;
 	
 	public GUI () {
 		super("TimeBudget");
 		pack();
 		setLocationRelativeTo(null);
-		setLayout(new FlowLayout());
+		home = new JPanel();
+		add (home);
+		home.setLayout(new FlowLayout());
+		tasks = new JPanel();
+		settings = new JPanel();
+		
+		tabPane = new JTabbedPane();
+		tabPane.addTab("Home", home);
+		tabPane.addTab("Tasks", tasks);
+		tabPane.addTab("Settings", settings);
+		add(tabPane);
+		
 		onBreak = false; //default break mode
 		formatter = DateTimeFormatter.ofPattern("M/d/yyyy");
 		constFile = new File("constants.txt");
 		paramFile = new File("params.txt");
 		schoolFile = new File("school.txt");
+
 		consts = new double[7];
 		daily = 0;
 
@@ -96,7 +115,7 @@ public class GUI extends JFrame {
 		//GUI PART!!!
 
 		msg = new JLabel("hi");
-		add(msg);
+		home.add(msg);
 
 		toggleBreak = new JButton("off break");
 		toggleBreak.addActionListener(
@@ -114,11 +133,10 @@ public class GUI extends JFrame {
 				}
 				);
 		
-		
-		add(toggleBreak);
+		home.add(toggleBreak);
 		//DROPDOWN GUI:
 		drop = new JComboBox<String>(choices.toArray(new String[choices.size()])); //param = array of options
-		add(drop);
+		home.add(drop);
 		showDate(0); //default show today
 		drop.addItemListener(
 				new ItemListener() {
@@ -128,18 +146,101 @@ public class GUI extends JFrame {
 					}
 				}
 			);
+		
+		//settings
+		done = new ArrayList<Integer>();
+		writeWork();
 	}
 	
+	private void writeFinished(){
+		FileWriter fw = null;
+		try
+		{
+		    String filename= "done.txt";
+		    fw = new FileWriter(filename,true); //the true will append the new data
+		    for (int i = 0; i < done.size(); i++)
+		    {
+		    	fw.write(work.get(done.get(i)).toString() + "," + formatter.format(LocalDate.now()) + "\n");//appends the string to the file
+				work.remove((int)done.get(i));
+		    }
+		}
+		catch(IOException ioe)
+		{
+		    System.err.println("IOException: " + ioe.getMessage());
+		    return;
+		}
+		finally
+		{
+			try {
+				fw.close();
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
+		}
+	}
+	
+	/*private void commitWork() {
+		int offset = 0;
+		Collections.sort(split, null);
+		for (int i = 0; i < split.size(); i++, offset++)
+			work.remove((int)(split.get(i)-offset));
+	}*/
+	
+	private void writeWork() {
+		class sortByFirst implements Comparator<List<Integer>> { //MY FIRST JAVA CUSTOM SORT FUNC!
+			public int compare(List<Integer> o1, List<Integer> o2) {
+				return Integer.compare(o1.get(0),o2.get(0));
+			}
+		}
+		Collections.sort(split, new sortByFirst()); 
+		for (int i = 0; i < split.size(); i++)
+		{
+			for (int j = 0; j < split.get(i).size(); j++)
+				System.out.print(split.get(i).get(j) + " ");
+			System.out.println();
+		}
+		Formatter y = null;
+		try {
+			y = new Formatter("~school.txt");
+			//System.out.println("You created a file");
+		} catch (FileNotFoundException e1) { e1.printStackTrace(); }
+		if (y != null)
+		{
+			int j = 0; //pointer to split
+			for (int i = 0; i < work.size(); i++)
+			{
+				if (j < split.size() && i == split.get(j).get(0)) //is work element parent of dupes?
+				{
+					System.out.println(work.get(i).name);
+					j++;
+				}
+				y.format("%s\n", work.get(i).toString());
+			}
+			
+			y.close();
+			
+			schoolFile.delete();
+
+			if (schoolFile.exists()) System.out.println("unable to edit school.txt");
+			File edit = new File ("~school.txt");
+			
+			edit.renameTo(new File ("school.txt"));
+			
+			schoolFile = new File ("school.txt");
+		}
+	}
 	void showDate(int index) { 
 		//shows both leetcode + play and assigned stuff
 		msg.setText(String.valueOf(index));
-		if (show != null) remove(show); //remove previous display
-		
-		show = new JPanel();
+		if (show != null) {
+			show.removeAll(); //remove previous display
+			remove(show);
+		}
+		else show = new JPanel();
 		GridBagConstraints c = new GridBagConstraints();
 		show.setLayout(new GridBagLayout());
 		
-		add(show);
+		home.add(show);
 		
 		c.fill = GridBagConstraints.HORIZONTAL;    //fill entire cell with text to center
 		c.gridwidth = 4; c.gridx = 0; c.gridy = 0;   //coords + width of msg element
@@ -150,19 +251,27 @@ public class GUI extends JFrame {
 			c.gridy++;
 		}
 		
-		stats = new JLabel(hrsLeft.get(index) + " out of " + (onBreak? budgetB.get(index) : budget.get(index)) + "hrs free"); 
+		stats = new JLabel(hrsLeft.get(index) + "/" + (onBreak? budgetB.get(index) : budget.get(index)) + "h free"); 
 		show.add(stats, c);
 		if (hrsLeft.get(index) > 0)
 		{
-			c.gridy++;
-			leet = new JLabel(String.valueOf(hrsLeft.get(index) * 0.6) + "h for CS");
+			c.gridy++; //%.2f to format double show 2 decimal places max
+			leet = new JLabel(niceDur(hrsLeft.get(index) * 0.6) + " for CS");
 			show.add(leet,c);
 			c.gridy++;
-			play = new JLabel(String.valueOf(hrsLeft.get(index) * 0.4) + "h for play");
+			play = new JLabel(String.format("%.1fh to play", hrsLeft.get(index) * 0.4));
+			play = new JLabel(niceDur(hrsLeft.get(index) * 0.4) + " to play");
 			show.add(play,c);
 		}	
 	}
 
+	String niceDur(double x) {
+		if (Math.ceil(x) == Math.floor(x)) //no decimal part
+			return (String.format("%.0fh", x));
+		return (String.format("%.0fh %.0fm", x, (x - Math.floor(x))*60));
+	}
+
+	
 	class CustomSort implements Comparator<Entry> { //MY FIRST JAVA CUSTOM SORT FUNC!
 		public int compare(Entry o1, Entry o2) {
 			if (o1.isFixed && !o2.isFixed) return -1; //(1) first make fixed event go to top
@@ -229,10 +338,10 @@ public class GUI extends JFrame {
 	private void distrAlg() {	
 		if (onBreak) hrsLeft = new ArrayList<Double>(budgetB);
 		else hrsLeft = new ArrayList<Double>(budget);
-
+		split  = new ArrayList<List<Integer>>();  //reset split
 		work.subList(oldWorkSize, work.size()).clear(); //removes any copies of originally read work
 		//that was inserted after, from indexes oldWorkSize, oldWorkSize+1......work.size()-1
-		assign = new ArrayList<List<Integer>>(); //
+		assign = new ArrayList<List<Integer>>(); //reset assign
 
 		for (int i = 0; i < 7; i++)
 		{
@@ -279,7 +388,11 @@ public class GUI extends JFrame {
 						printDates();
 						if (hrsLeft.get((int) n) - curr.hr < 0) //if need to split bc deadline also not enough time
 						{
+							List<Integer> temp = new ArrayList<Integer>();
+							temp.add(i); //first element is parent original
+							
 							work.add(new Entry(work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //make copy of original entry at back of work[], cannot override original (for break toggle)
+							temp.add(work.size()-1); //record first child of original
 							boolean doCont = true;
 							for (int j = 0; j < n && doCont; j++) //assign today? tmrw? day after? 
 							{
@@ -294,6 +407,7 @@ public class GUI extends JFrame {
 									}
 									else { //gotta do more splitting
 										work.add(new Entry(work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //copy
+										temp.add(work.size()-1); //save new child
 										work.get(work.size()-2).hr = hrsLeft.get(j); //assign previous copy to day j
 										assign.get(j).add(work.size()-2);
 
@@ -308,6 +422,7 @@ public class GUI extends JFrame {
 								assign.get((int) n).add(work.size()-1); //index of remaining portion assigned to date n's list
 								hrsLeft.set((int) n, hrsLeft.get((int) n) - work.get(work.size()-1).hr); //subtract remain portion time from deadline hrsleft
 							}
+							split.add(temp); //record the original's index as having been split + its dupe children
 						}
 						else { //deadline only day enough time, so assign to deadline
 							assign.get((int) n).add(i); //index of work assigned to date n's list
@@ -328,9 +443,6 @@ public class GUI extends JFrame {
 			}
 
 		}
-
-		//weekDayIdeal
-
 	}
 	private int dayToIndex(LocalDate y) {
 		DayOfWeek x = y.getDayOfWeek();
@@ -426,6 +538,7 @@ public class GUI extends JFrame {
 		}
 		return;
 	}
+	
 	private class Entry {
 		String name;
 		double diff;
@@ -441,7 +554,7 @@ public class GUI extends JFrame {
 		}
 
 		public String toString() {
-			return String.format(name + "\t" + diff + "\t" + hr + "\t" + formatter.format(deadline) + "\t" + isFixed);
+			return String.format("\"" + name + "\"," + diff + "," + hr + "," + formatter.format(deadline));
 		}
 	}
 }
