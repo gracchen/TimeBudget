@@ -18,9 +18,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Formatter;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.Set;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -34,13 +36,13 @@ public class GUI extends JFrame {
 	private JPanel home, tasks, settings;
 	private List<LocalDate> week;
 	private List<Double> budgetB, budget, hrsLeft; //break vs non-break budget
-	private List<Entry> work;
+	private List<Entry> work, review; //list of review entries
 	private List<List<Integer>> assign;
 	private List<Integer> done; //list of entry indexes marked done, to be deleted upon closing app
 	private List<List<Integer>> split; //list of entry indexes that were split (1st elem = original, rest is split children)
 	private JLabel msg;
 	private static final long serialVersionUID = 1L;
-	private File constFile, paramFile, schoolFile;
+	private File constFile, paramFile, schoolFile, classFile;
 	private double consts[];
 	private double daily;
 	private DateTimeFormatter formatter;
@@ -55,7 +57,7 @@ public class GUI extends JFrame {
 	private JLabel stats, leet, play;
 	private List<JCheckBox> checks;
 	private JTabbedPane tabPane;
-	
+	private LocalDate week1 = LocalDate.of(2023, 3, 20); //spring quarter instruction starts April 3
 	public GUI () {
 		super("TimeBudget");
 		pack();
@@ -65,19 +67,19 @@ public class GUI extends JFrame {
 		home.setLayout(new FlowLayout());
 		tasks = new JPanel();
 		settings = new JPanel();
-		
+
 		tabPane = new JTabbedPane();
 		tabPane.addTab("Home", home);
 		tabPane.addTab("Tasks", tasks);
 		tabPane.addTab("Settings", settings);
 		add(tabPane);
-		
+
 		onBreak = false; //default break mode
 		formatter = DateTimeFormatter.ofPattern("M/d/yyyy");
 		constFile = new File("constants.txt");
 		paramFile = new File("params.txt");
 		schoolFile = new File("school.txt");
-
+		classFile = new File("class.txt");
 		consts = new double[7];
 		daily = 0;
 
@@ -87,6 +89,8 @@ public class GUI extends JFrame {
 		readConstants();
 		readParams();
 		readSchool();
+
+		//for (int i = 0; i < )
 
 		LocalDate curr = LocalDate.now();
 		double weekendBudget = 0.0;
@@ -111,6 +115,8 @@ public class GUI extends JFrame {
 		distrAlg();
 		printDates();
 		printWork();
+		readClass();
+		//generate all review needs:
 
 		//GUI PART!!!
 
@@ -132,7 +138,7 @@ public class GUI extends JFrame {
 					}
 				}
 				);
-		
+
 		home.add(toggleBreak);
 		//DROPDOWN GUI:
 		drop = new JComboBox<String>(choices.toArray(new String[choices.size()])); //param = array of options
@@ -145,29 +151,29 @@ public class GUI extends JFrame {
 							showDate(drop.getSelectedIndex());
 					}
 				}
-			);
-		
+				);
+
 		//settings
 		done = new ArrayList<Integer>();
-		writeWork();
+		//writeWork();
 	}
-	
+
 	private void writeFinished(){
 		FileWriter fw = null;
 		try
 		{
-		    String filename= "done.txt";
-		    fw = new FileWriter(filename,true); //the true will append the new data
-		    for (int i = 0; i < done.size(); i++)
-		    {
-		    	fw.write(work.get(done.get(i)).toString() + "," + formatter.format(LocalDate.now()) + "\n");//appends the string to the file
+			String filename= "done.txt";
+			fw = new FileWriter(filename,true); //the true will append the new data
+			for (int i = 0; i < done.size(); i++)
+			{
+				fw.write(work.get(done.get(i)).toString() + "," + formatter.format(LocalDate.now()) + "\n");//appends the string to the file
 				work.remove((int)done.get(i));
-		    }
+			}
 		}
 		catch(IOException ioe)
 		{
-		    System.err.println("IOException: " + ioe.getMessage());
-		    return;
+			System.err.println("IOException: " + ioe.getMessage());
+			return;
 		}
 		finally
 		{
@@ -178,14 +184,14 @@ public class GUI extends JFrame {
 			}
 		}
 	}
-	
+
 	/*private void commitWork() {
 		int offset = 0;
 		Collections.sort(split, null);
 		for (int i = 0; i < split.size(); i++, offset++)
 			work.remove((int)(split.get(i)-offset));
 	}*/
-	
+
 	private void writeWork() {
 		class sortByFirst implements Comparator<List<Integer>> { //MY FIRST JAVA CUSTOM SORT FUNC!
 			public int compare(List<Integer> o1, List<Integer> o2) {
@@ -216,16 +222,16 @@ public class GUI extends JFrame {
 				}
 				y.format("%s\n", work.get(i).toString());
 			}
-			
+
 			y.close();
-			
+
 			schoolFile.delete();
 
 			if (schoolFile.exists()) System.out.println("unable to edit school.txt");
 			File edit = new File ("~school.txt");
-			
+
 			edit.renameTo(new File ("school.txt"));
-			
+
 			schoolFile = new File ("school.txt");
 		}
 	}
@@ -239,9 +245,9 @@ public class GUI extends JFrame {
 		else show = new JPanel();
 		GridBagConstraints c = new GridBagConstraints();
 		show.setLayout(new GridBagLayout());
-		
+
 		home.add(show);
-		
+
 		c.fill = GridBagConstraints.HORIZONTAL;    //fill entire cell with text to center
 		c.gridwidth = 4; c.gridx = 0; c.gridy = 0;   //coords + width of msg element
 		checks = new ArrayList<JCheckBox>();
@@ -250,7 +256,7 @@ public class GUI extends JFrame {
 			show.add(checks.get(checks.size()-1), c);
 			c.gridy++;
 		}
-		
+
 		stats = new JLabel(hrsLeft.get(index) + "/" + (onBreak? budgetB.get(index) : budget.get(index)) + "h free"); 
 		show.add(stats, c);
 		if (hrsLeft.get(index) > 0)
@@ -271,7 +277,7 @@ public class GUI extends JFrame {
 		return (String.format("%.0fh %.0fm", x, (x - Math.floor(x))*60));
 	}
 
-	
+
 	class CustomSort implements Comparator<Entry> { //MY FIRST JAVA CUSTOM SORT FUNC!
 		public int compare(Entry o1, Entry o2) {
 			if (o1.isFixed && !o2.isFixed) return -1; //(1) first make fixed event go to top
@@ -384,13 +390,13 @@ public class GUI extends JFrame {
 					if (idealN == -1) //all dates before deadline no time even without leet+play
 					{ //forced to assign assign the day of deadline
 
-						System.out.println("\n\tforcing: " + work.get(i) +"\n\t BEFORE:");
-						printDates();
+						//System.out.println("\n\tforcing: " + work.get(i) +"\n\t BEFORE:");
+						//printDates();
 						if (hrsLeft.get((int) n) - curr.hr < 0) //if need to split bc deadline also not enough time
 						{
 							List<Integer> temp = new ArrayList<Integer>();
 							temp.add(i); //first element is parent original
-							
+
 							work.add(new Entry(work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //make copy of original entry at back of work[], cannot override original (for break toggle)
 							temp.add(work.size()-1); //record first child of original
 							boolean doCont = true;
@@ -429,8 +435,8 @@ public class GUI extends JFrame {
 							hrsLeft.set((int) n, hrsLeft.get((int) n) - curr.hr);
 						}
 
-						System.out.println("AFTER");
-						printDates();
+						//System.out.println("AFTER");
+						//printDates();
 					}
 					else
 					{
@@ -447,6 +453,27 @@ public class GUI extends JFrame {
 	private int dayToIndex(LocalDate y) {
 		DayOfWeek x = y.getDayOfWeek();
 		switch (x) { 
+		case MONDAY:
+			return 0;
+		case TUESDAY:
+			return 1;
+		case WEDNESDAY:
+			return 2;
+		case THURSDAY:
+			return 3;
+		case FRIDAY:
+			return 4;
+		case SATURDAY:
+			return 5;
+		case SUNDAY:
+			return 6;
+		};
+		return -1;
+	}
+	
+	private int dayToIndex(DayOfWeek y) {
+		
+		switch (y) { 
 		case MONDAY:
 			return 0;
 		case TUESDAY:
@@ -489,6 +516,34 @@ public class GUI extends JFrame {
 		}
 		return;
 	}
+
+	private void readDone() {
+		Scanner getX = null;
+		try {
+			getX = new Scanner(new File("done.txt"));
+		} catch (FileNotFoundException e1) { e1.printStackTrace(); }
+		if (getX != null)
+		{
+			for (int i = 0; i < 7 && getX.hasNextLine(); i++)
+			{
+				double total = 0;
+				String temp[] = getX.nextLine().split(",");
+				for (int j = 0; j < temp.length; j++)
+				{
+					try {
+						total += Double.valueOf(temp[j]);
+					} catch (Exception e) {  };
+				}
+				//System.out.println(total);
+				consts[i] = total;
+			}
+			getX.close();
+			return;
+		}
+		return;
+	}
+
+
 	private void readParams() {
 		Scanner getX = null;
 		try {
@@ -538,7 +593,86 @@ public class GUI extends JFrame {
 		}
 		return;
 	}
-	
+
+	private void readClass() {
+		review = new ArrayList<Entry>();
+		//System.out.println("school.txt:");
+		LocalDate Now = LocalDate.now();
+		Scanner getX = null;
+		Scanner getY = null;
+		try {
+			getX = new Scanner(classFile);
+			getY = new Scanner(new File("done.txt"));
+		} catch (FileNotFoundException e1) { e1.printStackTrace(); }
+
+		if (getX != null && getY != null)
+		{
+			while(getX.hasNextLine())
+			{
+				String doneStat = getY.nextLine();
+				String line = getX.nextLine();
+				String name = line.substring(1, line.indexOf("\"",1));
+				String doneSplit[] = null;
+				line = line.substring(line.indexOf("\"", 1)+2); //remove name portion
+				if (doneStat.indexOf("\"", 1)+2 < doneStat.length()) 
+				{
+					doneStat = doneStat.substring(doneStat.indexOf("\"", 1)+2); //remove name portion
+					//System.out.println("FUCKING COME ON " + doneStat);
+					doneSplit = doneStat.split(",");
+					for (int i =0; i < doneSplit.length; i++) {
+						//System.out.println(LocalDate.parse(doneSplit[i], formatter));
+						//System.out.println("hi");
+					}
+					//System.out.println("bye");
+				}
+				
+				String temp[] = line.split(",");
+				Set<LocalDate> dontAdd = new HashSet<LocalDate>();
+				if (doneSplit != null) {
+					for (int i = 0; i < doneSplit.length; i++)
+						dontAdd.add(LocalDate.parse(doneSplit[i], formatter));
+				}
+				
+				for (int i = 1; i < temp.length; i++) 
+				{
+					//first class at this day of week: week1.plusDays(dayToIndex(initialDayOfWeek(temp[i])));
+					int n = dayToIndex(initialDayOfWeek(temp[i]));
+					//if class happened already
+					while (n >= 0 && week1.plusDays(n).isBefore(Now) || week1.plusDays(n).isEqual(Now)) {
+						if (dontAdd.contains(week1.plusDays(n))) { //marked as done
+							System.out.println("---------DONE$$$$" + new Entry(name, 1.0, Double.valueOf(temp[0]), week1.plusDays(n), false) + "@" + week1.plusDays(n).getDayOfWeek());
+						}
+						else{
+							review.add(new Entry(name, 1.0, Double.valueOf(temp[0]), week1.plusDays(n), false)) ; //add class to review todo list
+							System.out.println("$$$$$$$$$$$$$$$$$" + review.get(review.size()-1) + "@" + week1.plusDays(n).getDayOfWeek());
+							
+						}
+						n += 7; //check next week
+					}
+				}
+
+			}
+			getX.close();
+			oldWorkSize = work.size();
+			return;
+		}
+		return;
+	}
+
+	DayOfWeek initialDayOfWeek(String a) {
+		switch(a) {
+			case "M": 
+				return DayOfWeek.MONDAY;
+			case "T":
+				return DayOfWeek.TUESDAY;
+			case "W":
+				return DayOfWeek.WEDNESDAY;
+			case "R":
+				return DayOfWeek.THURSDAY;
+			default:
+				return DayOfWeek.FRIDAY;
+		}
+	}
 	private class Entry {
 		String name;
 		double diff;
