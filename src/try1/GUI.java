@@ -14,6 +14,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,7 +57,7 @@ public class GUI extends JFrame {
 	private JComboBox<String> drop;
 	private JPanel show;
 	private JLabel stats, leet, play;
-	private List<JCheckBox> checks;
+	private List<SimpleEntry<JCheckBox, Integer>> checks;
 	private JTabbedPane tabPane;
 	private LocalDate week1 = LocalDate.of(2023, 3, 20); //spring quarter instruction starts April 3
 	public GUI () {
@@ -156,6 +157,7 @@ public class GUI extends JFrame {
 		//settings
 		done = new ArrayList<Integer>();
 		//writeWork();
+		printWork();
 	}
 	
 	void showSelected(int index) { 
@@ -170,13 +172,39 @@ public class GUI extends JFrame {
 		show.setLayout(new GridBagLayout());
 
 		home.add(show);
+		
+		class checkHandler implements ItemListener { 
+			public void itemStateChanged(ItemEvent event) { 
+				for (int i = 0; i < checks.size(); ) {
+					if (checks.get(i).getKey().isSelected()) {
+						if (work.get(checks.get(i).getValue()) instanceof ReviewEntry) {
+							System.out.println("work[" + checks.get(i).getValue() +"] is review");
+							checks.remove(i);
+						}
+						else {
+							System.out.println("work[" + checks.get(i).getValue() +"] NOT review");
+							show.remove(checks.get(i).getKey());
+							checks.remove(i);
+							revalidate(); //to refresh
+						}
+						
+					}
+					else i++;
+				}
+			}
+		}
 
 		c.fill = GridBagConstraints.HORIZONTAL;    //fill entire cell with text to center
 		c.gridwidth = 4; c.gridx = 0; c.gridy = 0;   //coords + width of msg element
-		checks = new ArrayList<JCheckBox>();
+		checks = new ArrayList<SimpleEntry<JCheckBox, Integer>>(); //handler needs to check if is ReviewEntry, so also store int (index to assign)
+		checkHandler handler = new checkHandler();
 		for (int i = 0; i < assign.get(index).size(); i++) {
-			checks.add(new JCheckBox(work.get(assign.get(index).get(i)).name + ", " + work.get(assign.get(index).get(i)).hr + "h"));
-			show.add(checks.get(checks.size()-1), c);
+			
+			checks.add(new SimpleEntry<JCheckBox, Integer>(new JCheckBox(work.get(assign.get(index).get(i)).name + ", " + work.get(assign.get(index).get(i)).hr + "h"), assign.get(index).get(i)));
+			System.out.println(":(" + checks.get(checks.size()-1).getKey().getText() + " " + checks.get(checks.size()-1).getValue());
+			
+			checks.get(checks.size()-1).getKey().addItemListener(handler);
+			show.add(checks.get(checks.size()-1).getKey(), c);
 			c.gridy++;
 		}
 
@@ -221,13 +249,13 @@ public class GUI extends JFrame {
 	void printWork() {
 		System.out.println("Name\t\tDifficulty Hrs\tDeadline\tFixed?");
 		for (int i = 0; i < oldWorkSize; i++) //print sorted homework entries
-			System.out.println(work.get(i).toString());
+			System.out.println(i + ":" + work.get(i).toString());
 
 		if (work.size() != oldWorkSize)
 			System.out.println("________________________");
 
 		for (int i = oldWorkSize; i < work.size(); i++) //print sorted homework entries
-			System.out.println(work.get(i).toString());
+			System.out.println(i + ":" + work.get(i).toString());
 	}
 
 	void printBudget() {
@@ -296,7 +324,7 @@ public class GUI extends JFrame {
 
 				}
 				else {
-					if (n == 0) n++;
+					if (n==0) n++;
 					int idealN = -1;
 
 					for (int j = 0; j < n-1; j++) //assign today? tmrw? day after? 
@@ -315,13 +343,14 @@ public class GUI extends JFrame {
 					{ //forced to assign assign the day of deadline
 
 						//System.out.println("\n\tforcing: " + work.get(i) +"\n\t BEFORE:");
-						//printAssigned();
+						//printDates();
 						if (hrsLeft.get((int) n-1) - curr.hr < 0) //if need to split bc deadline also not enough time
 						{
 							List<Integer> temp = new ArrayList<Integer>();
 							temp.add(i); //first element is parent original
 
 							work.add(new Entry(work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //make copy of original entry at back of work[], cannot override original (for break toggle)
+							int numDupes = 1;
 							temp.add(work.size()-1); //record first child of original
 							boolean doCont = true;
 							for (int j = 0; j < n-1 && doCont; j++) //assign today? tmrw? day after? 
@@ -336,6 +365,7 @@ public class GUI extends JFrame {
 										hrsLeft.set(j, hrsLeft.get(j) - work.get(work.size()-1).hr); //update hours of day j
 									}
 									else { //gotta do more splitting
+										numDupes++;
 										work.add(new Entry(work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //copy
 										temp.add(work.size()-1); //save new child
 										work.get(work.size()-2).hr = hrsLeft.get(j); //assign previous copy to day j
@@ -349,8 +379,10 @@ public class GUI extends JFrame {
 							}
 							if (doCont) //still need to assign remaining portion, last resort is to deadline
 							{
-								assign.get((int) n-1).add(work.size()-1); //index of remaining portion assigned to date n's list
-								hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - work.get(work.size()-1).hr); //subtract remain portion time from deadline hrsleft
+								System.out.println("DuPeS:"+numDupes);
+								if (numDupes==1) work.remove(work.size()-1); //remove dupe, no 
+								assign.get((int) n-1).add(i); //index of remaining portion assigned to date n's list
+								hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - work.get(i).hr); //subtract remain portion time from deadline hrsleft
 							}
 							split.add(temp); //record the original's index as having been split + its dupe children
 						}
@@ -360,11 +392,11 @@ public class GUI extends JFrame {
 						}
 
 						//System.out.println("AFTER");
-						//printAssigned();
+						//printDates();
 					}
 					else
 					{
-						//System.out.println("\tideal" + idealN + curr.name);
+						System.out.println("\tideal" + idealN + curr.name);
 						assign.get(idealN).add(i); //index of work assigned to date idealN's list
 						//System.out.println(assign.get(idealN));
 						hrsLeft.set(idealN, hrsLeft.get(idealN) - curr.hr);
@@ -542,9 +574,8 @@ public class GUI extends JFrame {
 							System.out.println("---------DONE$$$$" + new Entry(name +" Lecture "+lectID, 1.0, Double.valueOf(temp[0]), week1.plusDays(n+nDeadline), false) + "@" + week1.plusDays(n).getDayOfWeek());
 						}
 						else{
-							work.add(new Entry(name +" Lecture "+lectID, 1.0, Double.valueOf(temp[0]), week1.plusDays(n+nDeadline), false)) ; //add class to review todo list
+							work.add(new ReviewEntry(name +" Lecture "+lectID, 1.0, Double.valueOf(temp[0]), week1.plusDays(n+nDeadline), false)) ; //add class to review todo list
 							System.out.println("$$$$$$$$$$$$$$$$$" + work.get(work.size()-1) + "@" + week1.plusDays(n+nDeadline).getDayOfWeek());
-							
 						}
 						n += 7; //check next week
 					}
@@ -589,6 +620,13 @@ public class GUI extends JFrame {
 
 		public String toString() {
 			return String.format("\"" + name + "\"\t" + diff + "\t" + hr + "\t" + formatter.format(deadline) + "\t" + isFixed);
+		}
+	}
+
+	private class ReviewEntry extends Entry {
+		ReviewEntry(String n, double di, double h, LocalDate de, boolean t) {
+			super(n,di,h,de,t);
+			// TODO Auto-generated constructor stub
 		}
 	}
 }
