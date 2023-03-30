@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Formatter;
@@ -36,7 +37,7 @@ public class GUI extends JFrame {
 	private JPanel home, tasks, settings;
 	private List<LocalDate> week;
 	private List<Double> budgetB, budget, hrsLeft; //break vs non-break budget
-	private List<Entry> work, review; //list of review entries
+	private List<Entry> work; 
 	private List<List<Integer>> assign;
 	private List<Integer> done; //list of entry indexes marked done, to be deleted upon closing app
 	private List<List<Integer>> split; //list of entry indexes that were split (1st elem = original, rest is split children)
@@ -89,7 +90,7 @@ public class GUI extends JFrame {
 		readConstants();
 		readParams();
 		readSchool();
-
+		addReviewToDo();
 		//for (int i = 0; i < )
 
 		LocalDate curr = LocalDate.now();
@@ -111,16 +112,15 @@ public class GUI extends JFrame {
 		System.out.println("Name\t\tDifficulty Hrs\tDeadline\tFixed?");
 		for (int i = 0; i < oldWorkSize; i++) //print sorted homework entries
 			System.out.println(work.get(i).toString());
-
+		//printWork();
 		distrAlg();
-		printDates();
-		printWork();
-		readClass();
-		//generate all review needs:
+		
+		//printAssigned();
+		
+		
 
-		//GUI PART!!!
-
-		msg = new JLabel("hi");
+		//GUI PART!!!msg = new JLabel("hi");
+		msg = new JLabel();
 		home.add(msg);
 
 		toggleBreak = new JButton("off break");
@@ -132,9 +132,9 @@ public class GUI extends JFrame {
 						toggleBreak.setText(onBreak? "on break" : "off break");
 						distrAlg();
 						printBudget();
-						printDates();
+						printAssigned();
 						printWork();
-						showDate(drop.getSelectedIndex()); //update
+						showSelected(drop.getSelectedIndex()); //update
 					}
 				}
 				);
@@ -143,12 +143,12 @@ public class GUI extends JFrame {
 		//DROPDOWN GUI:
 		drop = new JComboBox<String>(choices.toArray(new String[choices.size()])); //param = array of options
 		home.add(drop);
-		showDate(0); //default show today
+		showSelected(0); //default show today
 		drop.addItemListener(
 				new ItemListener() {
 					public void itemStateChanged(ItemEvent event) {
 						if(event.getStateChange() == ItemEvent.SELECTED)
-							showDate(drop.getSelectedIndex());
+							showSelected(drop.getSelectedIndex());
 					}
 				}
 				);
@@ -157,85 +157,8 @@ public class GUI extends JFrame {
 		done = new ArrayList<Integer>();
 		//writeWork();
 	}
-
-	private void writeFinished(){
-		FileWriter fw = null;
-		try
-		{
-			String filename= "done.txt";
-			fw = new FileWriter(filename,true); //the true will append the new data
-			for (int i = 0; i < done.size(); i++)
-			{
-				fw.write(work.get(done.get(i)).toString() + "," + formatter.format(LocalDate.now()) + "\n");//appends the string to the file
-				work.remove((int)done.get(i));
-			}
-		}
-		catch(IOException ioe)
-		{
-			System.err.println("IOException: " + ioe.getMessage());
-			return;
-		}
-		finally
-		{
-			try {
-				fw.close();
-			} catch (IOException e1) {
-				e1.printStackTrace();
-			}
-		}
-	}
-
-	/*private void commitWork() {
-		int offset = 0;
-		Collections.sort(split, null);
-		for (int i = 0; i < split.size(); i++, offset++)
-			work.remove((int)(split.get(i)-offset));
-	}*/
-
-	private void writeWork() {
-		class sortByFirst implements Comparator<List<Integer>> { //MY FIRST JAVA CUSTOM SORT FUNC!
-			public int compare(List<Integer> o1, List<Integer> o2) {
-				return Integer.compare(o1.get(0),o2.get(0));
-			}
-		}
-		Collections.sort(split, new sortByFirst()); 
-		for (int i = 0; i < split.size(); i++)
-		{
-			for (int j = 0; j < split.get(i).size(); j++)
-				System.out.print(split.get(i).get(j) + " ");
-			System.out.println();
-		}
-		Formatter y = null;
-		try {
-			y = new Formatter("~school.txt");
-			//System.out.println("You created a file");
-		} catch (FileNotFoundException e1) { e1.printStackTrace(); }
-		if (y != null)
-		{
-			int j = 0; //pointer to split
-			for (int i = 0; i < work.size(); i++)
-			{
-				if (j < split.size() && i == split.get(j).get(0)) //is work element parent of dupes?
-				{
-					System.out.println(work.get(i).name);
-					j++;
-				}
-				y.format("%s\n", work.get(i).toString());
-			}
-
-			y.close();
-
-			schoolFile.delete();
-
-			if (schoolFile.exists()) System.out.println("unable to edit school.txt");
-			File edit = new File ("~school.txt");
-
-			edit.renameTo(new File ("school.txt"));
-
-			schoolFile = new File ("school.txt");
-		}
-	}
-	void showDate(int index) { 
+	
+	void showSelected(int index) { 
 		//shows both leetcode + play and assigned stuff
 		msg.setText(String.valueOf(index));
 		if (show != null) {
@@ -262,21 +185,20 @@ public class GUI extends JFrame {
 		if (hrsLeft.get(index) > 0)
 		{
 			c.gridy++; //%.2f to format double show 2 decimal places max
-			leet = new JLabel(niceDur(hrsLeft.get(index) * 0.6) + " for CS");
+			leet = new JLabel(formatDuration(hrsLeft.get(index) * 0.6) + " for CS");
 			show.add(leet,c);
 			c.gridy++;
 			play = new JLabel(String.format("%.1fh to play", hrsLeft.get(index) * 0.4));
-			play = new JLabel(niceDur(hrsLeft.get(index) * 0.4) + " to play");
+			play = new JLabel(formatDuration(hrsLeft.get(index) * 0.4) + " to play");
 			show.add(play,c);
 		}	
 	}
 
-	String niceDur(double x) {
+	String formatDuration(double x) {
 		if (Math.ceil(x) == Math.floor(x)) //no decimal part
 			return (String.format("%.0fh", x));
 		return (String.format("%.0fh %.0fm", x, (x - Math.floor(x))*60));
 	}
-
 
 	class CustomSort implements Comparator<Entry> { //MY FIRST JAVA CUSTOM SORT FUNC!
 		public int compare(Entry o1, Entry o2) {
@@ -321,7 +243,7 @@ public class GUI extends JFrame {
 		}
 	}
 
-	void printDates() {
+	void printAssigned() {
 		System.out.println("printing dates, remaining budget out of max, assigned work");
 		if (onBreak) {
 			for (int i = 0; i < 7; i++)
@@ -341,6 +263,7 @@ public class GUI extends JFrame {
 
 		}
 	}
+	
 	private void distrAlg() {	
 		if (onBreak) hrsLeft = new ArrayList<Double>(budgetB);
 		else hrsLeft = new ArrayList<Double>(budget);
@@ -373,9 +296,10 @@ public class GUI extends JFrame {
 
 				}
 				else {
+					if (n == 0) n++;
 					int idealN = -1;
 
-					for (int j = 0; j < n; j++) //assign today? tmrw? day after? 
+					for (int j = 0; j < n-1; j++) //assign today? tmrw? day after? 
 					{
 						if (hrsLeft.get(j) - curr.hr >= 0)
 						{
@@ -391,8 +315,8 @@ public class GUI extends JFrame {
 					{ //forced to assign assign the day of deadline
 
 						//System.out.println("\n\tforcing: " + work.get(i) +"\n\t BEFORE:");
-						//printDates();
-						if (hrsLeft.get((int) n) - curr.hr < 0) //if need to split bc deadline also not enough time
+						//printAssigned();
+						if (hrsLeft.get((int) n-1) - curr.hr < 0) //if need to split bc deadline also not enough time
 						{
 							List<Integer> temp = new ArrayList<Integer>();
 							temp.add(i); //first element is parent original
@@ -400,7 +324,7 @@ public class GUI extends JFrame {
 							work.add(new Entry(work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //make copy of original entry at back of work[], cannot override original (for break toggle)
 							temp.add(work.size()-1); //record first child of original
 							boolean doCont = true;
-							for (int j = 0; j < n && doCont; j++) //assign today? tmrw? day after? 
+							for (int j = 0; j < n-1 && doCont; j++) //assign today? tmrw? day after? 
 							{
 								if (hrsLeft.get(j) > 0) //has some time to squeeze this task
 								{
@@ -425,22 +349,22 @@ public class GUI extends JFrame {
 							}
 							if (doCont) //still need to assign remaining portion, last resort is to deadline
 							{
-								assign.get((int) n).add(work.size()-1); //index of remaining portion assigned to date n's list
-								hrsLeft.set((int) n, hrsLeft.get((int) n) - work.get(work.size()-1).hr); //subtract remain portion time from deadline hrsleft
+								assign.get((int) n-1).add(work.size()-1); //index of remaining portion assigned to date n's list
+								hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - work.get(work.size()-1).hr); //subtract remain portion time from deadline hrsleft
 							}
 							split.add(temp); //record the original's index as having been split + its dupe children
 						}
 						else { //deadline only day enough time, so assign to deadline
-							assign.get((int) n).add(i); //index of work assigned to date n's list
-							hrsLeft.set((int) n, hrsLeft.get((int) n) - curr.hr);
+							assign.get((int) n-1).add(i); //index of work assigned to date n's list
+							hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - curr.hr);
 						}
 
 						//System.out.println("AFTER");
-						//printDates();
+						//printAssigned();
 					}
 					else
 					{
-						System.out.println("\tideal" + idealN + curr.name);
+						//System.out.println("\tideal" + idealN + curr.name);
 						assign.get(idealN).add(i); //index of work assigned to date idealN's list
 						//System.out.println(assign.get(idealN));
 						hrsLeft.set(idealN, hrsLeft.get(idealN) - curr.hr);
@@ -450,25 +374,9 @@ public class GUI extends JFrame {
 
 		}
 	}
+	
 	private int dayToIndex(LocalDate y) {
-		DayOfWeek x = y.getDayOfWeek();
-		switch (x) { 
-		case MONDAY:
-			return 0;
-		case TUESDAY:
-			return 1;
-		case WEDNESDAY:
-			return 2;
-		case THURSDAY:
-			return 3;
-		case FRIDAY:
-			return 4;
-		case SATURDAY:
-			return 5;
-		case SUNDAY:
-			return 6;
-		};
-		return -1;
+		return dayToIndex(y.getDayOfWeek());
 	}
 	
 	private int dayToIndex(DayOfWeek y) {
@@ -491,6 +399,7 @@ public class GUI extends JFrame {
 		};
 		return -1;
 	}
+	
 	private void readConstants() {
 		Scanner getX = null;
 		try {
@@ -517,33 +426,6 @@ public class GUI extends JFrame {
 		return;
 	}
 
-	private void readDone() {
-		Scanner getX = null;
-		try {
-			getX = new Scanner(new File("done.txt"));
-		} catch (FileNotFoundException e1) { e1.printStackTrace(); }
-		if (getX != null)
-		{
-			for (int i = 0; i < 7 && getX.hasNextLine(); i++)
-			{
-				double total = 0;
-				String temp[] = getX.nextLine().split(",");
-				for (int j = 0; j < temp.length; j++)
-				{
-					try {
-						total += Double.valueOf(temp[j]);
-					} catch (Exception e) {  };
-				}
-				//System.out.println(total);
-				consts[i] = total;
-			}
-			getX.close();
-			return;
-		}
-		return;
-	}
-
-
 	private void readParams() {
 		Scanner getX = null;
 		try {
@@ -564,6 +446,7 @@ public class GUI extends JFrame {
 			return;
 		}
 	}
+	
 	private void readSchool() {
 		//System.out.println("school.txt:");
 		Scanner getX = null;
@@ -594,9 +477,19 @@ public class GUI extends JFrame {
 		return;
 	}
 
-	private void readClass() {
-		review = new ArrayList<Entry>();
-		//System.out.println("school.txt:");
+	private int daysBetweenDayOfWeeks(String x, String y) { //crappy slow way of implementing this
+		LocalDate now = LocalDate.now();
+		DayOfWeek a = initialDayOfWeek(x);
+		DayOfWeek b = initialDayOfWeek(y);
+		int A=0; 
+		for (; now.plusDays(A).getDayOfWeek() != a; A++);
+		int B=A;
+		for (; now.plusDays(B).getDayOfWeek() != b; B++);
+		//System.out.println("daysBetweenDayOfWeeks("+x+","+y+")="+(B-A));
+		return (B-A);
+	}
+	
+	private void addReviewToDo() {
 		LocalDate Now = LocalDate.now();
 		Scanner getX = null;
 		Scanner getY = null;
@@ -627,24 +520,30 @@ public class GUI extends JFrame {
 				}
 				
 				String temp[] = line.split(",");
-				Set<LocalDate> dontAdd = new HashSet<LocalDate>();
+				Set<String> dontAdd = null;
 				if (doneSplit != null) {
-					for (int i = 0; i < doneSplit.length; i++)
-						dontAdd.add(LocalDate.parse(doneSplit[i], formatter));
+					dontAdd = new HashSet<String>(Arrays.asList(doneSplit));
 				}
 				
 				for (int i = 1; i < temp.length; i++) 
 				{
 					//first class at this day of week: week1.plusDays(dayToIndex(initialDayOfWeek(temp[i])));
+					int nDeadline;
 					int n = dayToIndex(initialDayOfWeek(temp[i]));
+					if (i+1 == temp.length) nDeadline = daysBetweenDayOfWeeks(temp[i], temp[1]);
+					else nDeadline  = daysBetweenDayOfWeeks(temp[i], temp[i+1]);
+					//System.out.println("\t" + nDeadline + " " + i);
 					//if class happened already
 					while (n >= 0 && week1.plusDays(n).isBefore(Now) || week1.plusDays(n).isEqual(Now)) {
-						if (dontAdd.contains(week1.plusDays(n))) { //marked as done
-							System.out.println("---------DONE$$$$" + new Entry(name, 1.0, Double.valueOf(temp[0]), week1.plusDays(n), false) + "@" + week1.plusDays(n).getDayOfWeek());
+						
+						String lectID = (n/7+1)+"."+i; //week.lect#  i.e. 4.1 means 1st lecture of week 4
+						
+						if (dontAdd != null && dontAdd.contains(lectID)) { //marked as done
+							System.out.println("---------DONE$$$$" + new Entry(name +" Lecture "+lectID, 1.0, Double.valueOf(temp[0]), week1.plusDays(n+nDeadline), false) + "@" + week1.plusDays(n).getDayOfWeek());
 						}
 						else{
-							review.add(new Entry(name, 1.0, Double.valueOf(temp[0]), week1.plusDays(n), false)) ; //add class to review todo list
-							System.out.println("$$$$$$$$$$$$$$$$$" + review.get(review.size()-1) + "@" + week1.plusDays(n).getDayOfWeek());
+							work.add(new Entry(name +" Lecture "+lectID, 1.0, Double.valueOf(temp[0]), week1.plusDays(n+nDeadline), false)) ; //add class to review todo list
+							System.out.println("$$$$$$$$$$$$$$$$$" + work.get(work.size()-1) + "@" + week1.plusDays(n+nDeadline).getDayOfWeek());
 							
 						}
 						n += 7; //check next week
@@ -673,6 +572,7 @@ public class GUI extends JFrame {
 				return DayOfWeek.FRIDAY;
 		}
 	}
+	
 	private class Entry {
 		String name;
 		double diff;
@@ -688,7 +588,7 @@ public class GUI extends JFrame {
 		}
 
 		public String toString() {
-			return String.format("\"" + name + "\"," + diff + "," + hr + "," + formatter.format(deadline));
+			return String.format("\"" + name + "\"\t" + diff + "\t" + hr + "\t" + formatter.format(deadline) + "\t" + isFixed);
 		}
 	}
 }
