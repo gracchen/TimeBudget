@@ -6,6 +6,27 @@ System requisites: At least JRE version 9
 Download prototype.jar and run it.
 
 ## Latest updates:
+#### 3/28/2023: 
+- some longer (and hopefully better) names for stuff
+- introduce two subclasses of Entry, ReviewEntry and DupeEntry. DupeEntry extra member var storing dupe's parent index
+     - demo video here: https://drive.google.com/file/d/1ofaD01iu4rudOYGOkEhjETHkRD522dh1/view?usp=share_link
+- fix review session generator setting deadline same as lecture's date, now deadline is next lecture's date
+     - need to review Lecture 1.1 before Lecture 1.2, for example.
+- force deadline to day before, no longer day of deadline. 
+- remove bug of init duplication even when unnecessary (only day before deadline any time at all), clean up
+- change done.txt's system of recording finished lecture reviews into <week#>.<#th lecture of week>, i.e. 1.3 = 3rd lecture of week 1
+
+New used features: 
+- new HashSet<String>(Arrays.asList(doneSplit));   convert array into set
+- SimpleEntry<key, value> as substitute for pair<first,second> in C++
+- if (obj instanceof someClass) 
+- revalidate() to refresh panel
+
+#### 3/27/2023: despite roadblock, implemented review session generator
+added class.txt and done.txt, former gives day of weeks each class occurs, latter to save which sessions done reviewing
+- Set<LocalDate> dontAdd = new HashSet<LocalDate>()
+     - if (dontAdd.contains(x))
+
 #### 3/26/2023: sudden burst of unforseen complexities, getting intimidated
 added: 
 - splitting algorithm (introduces complexities of marking which partitions as complete, where to store dupes and how to keep track which is parent/child of which, etc)

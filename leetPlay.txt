@@ -1,4 +1,0 @@
-weekdayLeet,0.5
-weekendLeet,3
-weekdayPlay,0.5
-weekendPlay,2
