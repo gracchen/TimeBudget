@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Formatter;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
@@ -43,7 +44,7 @@ public class GUI extends JFrame {
 	private List<Entry> work; 
 	private List<List<Integer>> assign;
 	private List<List<String>> doneReviews; //list of ReviewEntry indexes marked doneReviews, to be deleted upon closing app
-	private Set<String> done;
+	private Set<Integer> done; //list of indexes to "remove" from work upon exit
 	private JLabel msg;
 	private static final long serialVersionUID = 1L;
 	private File dayOfWeekConstFile, dailyConstFile, schoolWorkFile, reviewClassesFile;
@@ -95,6 +96,7 @@ public class GUI extends JFrame {
 		budget = new ArrayList<Double>(Collections.nCopies(7,24.0));
 		work = new ArrayList<Entry>();
 		doneReviews = new ArrayList<List<String>>();
+		done = new HashSet<Integer>();
 		readDayOfWeekConstants();
 		readDailyConsts();
 		readSchoolWork();
@@ -158,12 +160,11 @@ public class GUI extends JFrame {
 		//writeWork();
 		System.out.println("\nNow Printing Work[]: ");
 		printWork();
-		updateDone();
-		
 	}
 	
 	public void onExit() {
 		updateDone();
+		updateWork();
 		System.err.println("Exit");
 		System.exit(0);
 	}
@@ -191,11 +192,14 @@ public class GUI extends JFrame {
 							int parent = ((DupeEntry)work.get(curr)).parent; //parent
 							System.out.println("work["+curr+"] is dupe of work["+parent+"]");
 							work.get(parent).hr -= work.get(curr).hr; //INSTEAD OF OVERCOMPLEX MERGING DUPES
-							if (work.get(parent).hr <= 0 && work.get(parent) instanceof ReviewEntry) { //last dupe of a review entry
-								int classIndex = ((ReviewEntry)work.get(parent)).classIndex;//mark parent review as doneReviews
-								String temp[] = work.get(parent).name.split(" ");
-								doneReviews.get(classIndex).add(temp[temp.length-1]); //get week#.lect# of name
-								System.out.println("\tfinished " + String.valueOf(temp[temp.length-1]) + " to class " + classIndex);
+							if (work.get(parent).hr <= 0) { //last dupe of entry
+								if (work.get(parent) instanceof ReviewEntry) {
+									int classIndex = ((ReviewEntry)work.get(parent)).classIndex;//mark parent review as doneReviews
+									String temp[] = work.get(parent).name.split(" ");
+									doneReviews.get(classIndex).add(temp[temp.length-1]); //get week#.lect# of name
+									System.out.println("\tfinished " + String.valueOf(temp[temp.length-1]) + " to class " + classIndex);
+								}
+								else done.add(parent); //if last dupe of non-review entry, also mark to remove upon exit
 							}
 						}
 						else
@@ -208,10 +212,14 @@ public class GUI extends JFrame {
 								doneReviews.get(classIndex).add(temp[temp.length-1]); //get week#.lect# of name
 								System.out.println("\tfinished " + String.valueOf(temp[temp.length-1]) + " to class " + classIndex);
 							}
-							else System.out.println("work[" + curr +"] NOT review");
+							else {
+								System.out.println("work[" + curr +"] NOT review");
+								done.add(curr); //if non-review entry, remove checked upon exit
+							}
 						}
 						//unintended awesome design: don't have to edit work[ ] itself, messing up indexes. Simply
 						//unassign from assign [ ], voila! 
+						
 						assign.get(drop.getSelectedIndex()).remove(checks.get(i).getValue()); //unassign checked item
 						show.remove(checks.get(i).getKey());
 						checks.remove(i);
@@ -618,11 +626,16 @@ public class GUI extends JFrame {
 		}
 		return;
 	}
-
+	
 	private void updateWork() {
 		Formatter newDone = null;
 		Scanner oldDone = null;
 		File oldDoneFile = null;
+		Iterator itr = done.iterator();
+        while (itr.hasNext()) {
+            System.out.println(itr.next());
+        }
+        
 		try {
 			oldDoneFile = new File("schoolWork.txt");
 			oldDone = new Scanner(oldDoneFile);
@@ -632,15 +645,15 @@ public class GUI extends JFrame {
 		if (newDone != null)
 		{
 			for (int i = 0; i < oldWorkSize; i++) {
-				
+				if (!done.contains(i) && !(work.get(i) instanceof ReviewEntry)) newDone.format("%s\n", work.get(i).toCSV());
 			}
 			newDone.close();
 			oldDone.close();
 		
 			oldDoneFile.delete();
 
-			if (oldDoneFile.exists()) System.out.println("unable to edit doneReviews.txt");
-			File edit = new File ("~doneReviews.txt");
+			if (oldDoneFile.exists()) System.out.println("unable to edit schoolWork.txt");
+			File edit = new File ("~schoolWork.txt");
 			edit.renameTo(oldDoneFile);
 		}
 	}
@@ -724,6 +737,10 @@ public class GUI extends JFrame {
 
 		public String toString() {
 			return String.format("\"" + name + "\"\t" + diff + "\t" + hr + "\t" + formatter.format(deadline) + "\t" + isFixed);
+		}
+		
+		public String toCSV() {
+			return String.format("\"" + name + "\"," + diff + "," + hr + "," + formatter.format(deadline) + "," + isFixed);
 		}
 	}
 
