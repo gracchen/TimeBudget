@@ -6,8 +6,12 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -17,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Formatter;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -37,7 +42,8 @@ public class GUI extends JFrame {
 	private List<Double> breakBudget, budget, hrsLeft; //break vs non-break budget
 	private List<Entry> work; 
 	private List<List<Integer>> assign;
-	private List<Integer> done; //list of ReviewEntry indexes marked done, to be deleted upon closing app
+	private List<List<String>> doneReviews; //list of ReviewEntry indexes marked doneReviews, to be deleted upon closing app
+	private Set<String> done;
 	private JLabel msg;
 	private static final long serialVersionUID = 1L;
 	private File dayOfWeekConstFile, dailyConstFile, schoolWorkFile, reviewClassesFile;
@@ -57,6 +63,13 @@ public class GUI extends JFrame {
 		super("TimeBudget");
 		pack();
 		setLocationRelativeTo(null);
+		
+		addWindowListener(new WindowAdapter() {
+			   public void windowClosing(WindowEvent evt) {
+			     onExit();
+			   }
+			  });
+		
 		home = new JPanel();
 		add (home);
 		home.setLayout(new FlowLayout());
@@ -81,11 +94,11 @@ public class GUI extends JFrame {
 		week = new LinkedList<LocalDate>();
 		budget = new ArrayList<Double>(Collections.nCopies(7,24.0));
 		work = new ArrayList<Entry>();
+		doneReviews = new ArrayList<List<String>>();
 		readDayOfWeekConstants();
 		readDailyConsts();
 		readSchoolWork();
 		addReviewToDo();
-		//for (int i = 0; i < )
 
 		LocalDate curr = LocalDate.now();
 		double weekendBudget = 0.0;
@@ -106,10 +119,6 @@ public class GUI extends JFrame {
 
 		workScheduler();
 		
-		//printAssigned();
-		
-		
-
 		//GUI PART!!!msg = new JLabel("hi");
 		msg = new JLabel();
 		home.add(msg);
@@ -145,10 +154,18 @@ public class GUI extends JFrame {
 				);
 
 		//settings
-		done = new ArrayList<Integer>();
+		
 		//writeWork();
 		System.out.println("\nNow Printing Work[]: ");
 		printWork();
+		updateDone();
+		
+	}
+	
+	public void onExit() {
+		updateDone();
+		System.err.println("Exit");
+		System.exit(0);
 	}
 	
 	void showSelected(int index) { 
@@ -168,30 +185,34 @@ public class GUI extends JFrame {
 			public void itemStateChanged(ItemEvent event) { 
 				for (int i = 0; i < checks.size(); ) {
 					if (checks.get(i).getKey().isSelected()) {
-						int checkWho;
-						if (work.get(checks.get(i).getValue()) instanceof DupeEntry)
+						int curr = checks.get(i).getValue();
+						if (work.get(curr) instanceof DupeEntry) //currently checked off is dupe
 						{
-							checkWho = ((DupeEntry)work.get(checks.get(i).getValue())).parent;
-							work.get(checkWho).hr -= work.get(checks.get(i).getValue()).hr; //INSTEAD OF OVERCOMPLEX MERGING DUPES
+							int parent = ((DupeEntry)work.get(curr)).parent; //parent
+							System.out.println("work["+curr+"] is dupe of work["+parent+"]");
+							work.get(parent).hr -= work.get(curr).hr; //INSTEAD OF OVERCOMPLEX MERGING DUPES
+							if (work.get(parent).hr <= 0 && work.get(parent) instanceof ReviewEntry) { //last dupe of a review entry
+								int classIndex = ((ReviewEntry)work.get(parent)).classIndex;//mark parent review as doneReviews
+								String temp[] = work.get(parent).name.split(" ");
+								doneReviews.get(classIndex).add(temp[temp.length-1]); //get week#.lect# of name
+								System.out.println("\tfinished " + String.valueOf(temp[temp.length-1]) + " to class " + classIndex);
+							}
 						}
 						else
-							checkWho = checks.get(i).getValue();
-						
-						if (work.get(checkWho) instanceof ReviewEntry)
-							System.out.println("work[" + checks.get(i).getValue() +"] is review");
-						else 
-							System.out.println("work[" + checkWho +"] NOT review");
-						
+						{
+							if (work.get(curr) instanceof ReviewEntry)
+							{
+								System.out.println("work[" + checks.get(i).getValue() +"] is review");
+								int classIndex = ((ReviewEntry)work.get(curr)).classIndex; //mark review as doneReviews
+								String temp[] = work.get(curr).name.split(" ");
+								doneReviews.get(classIndex).add(temp[temp.length-1]); //get week#.lect# of name
+								System.out.println("\tfinished " + String.valueOf(temp[temp.length-1]) + " to class " + classIndex);
+							}
+							else System.out.println("work[" + curr +"] NOT review");
+						}
 						//unintended awesome design: don't have to edit work[ ] itself, messing up indexes. Simply
 						//unassign from assign [ ], voila! 
 						assign.get(drop.getSelectedIndex()).remove(checks.get(i).getValue()); //unassign checked item
-						
-						if (work.get(checkWho) instanceof ReviewEntry) 
-						{
-							done.add(checks.get(i).getValue()); //only care about done review sessions
-							System.out.println("saved " + work.get(checks.get(i).getValue()).name + " finished review");
-						}
-						
 						show.remove(checks.get(i).getKey());
 						checks.remove(i);
 						revalidate(); //to refresh removal
@@ -364,7 +385,7 @@ public class GUI extends JFrame {
 								if (hrsLeft.get(j) > 0) //has some time to squeeze this task
 								{
 									//System.out.println("hey! day "+  week.get(j) + " has hrs: " + hrsLeft.get(j));
-									if (work.get(work.size()-1).hr <= hrsLeft.get(j)) { //done! all parts fitted
+									if (work.get(work.size()-1).hr <= hrsLeft.get(j)) { //doneReviews! all parts fitted
 										//System.out.println("it's okay, " + work.get(work.size()-1).name + " only needs " + work.get(work.size()-1).hr);
 										doCont = false;
 										assign.get(j).add(work.size()-1); //direct assign to day j
@@ -537,8 +558,11 @@ public class GUI extends JFrame {
 
 		if (getX != null && getY != null)
 		{
+			int classIndex = 0;
 			while(getX.hasNextLine())
 			{
+				List<String> temp = new ArrayList<String>();
+				doneReviews.add(temp);
 				String doneStat = getY.nextLine();
 				String line = getX.nextLine();
 				String name = line.substring(1, line.indexOf("\"",1));
@@ -556,43 +580,119 @@ public class GUI extends JFrame {
 					//System.out.println("bye");
 				}
 				
-				String temp[] = line.split(",");
+				String temp1[] = line.split(",");
 				Set<String> dontAdd = null;
 				if (doneSplit != null) {
 					dontAdd = new HashSet<String>(Arrays.asList(doneSplit));
 				}
 				
-				for (int i = 1; i < temp.length; i++) 
+				for (int i = 1; i < temp1.length; i++) 
 				{
 					//first class at this day of week: week1.plusDays(dayToIndex(initialDayOfWeek(temp[i])));
 					int nDeadline;
-					int n = dayToIndex(initialDayOfWeek(temp[i]));
-					if (i+1 == temp.length) nDeadline = daysBetweenDayOfWeeks(temp[i], temp[1]);
-					else nDeadline  = daysBetweenDayOfWeeks(temp[i], temp[i+1]);
+					int n = dayToIndex(initialDayOfWeek(temp1[i]));
+					if (i+1 == temp1.length) nDeadline = daysBetweenDayOfWeeks(temp1[i], temp1[1]);
+					else nDeadline  = daysBetweenDayOfWeeks(temp1[i], temp1[i+1]);
 					//System.out.println("\t" + nDeadline + " " + i);
 					//if class happened already
 					while (n >= 0 && week1.plusDays(n).isBefore(Now) || week1.plusDays(n).isEqual(Now)) {
 						
 						String lectID = (n/7+1)+"."+i; //week.lect#  i.e. 4.1 means 1st lecture of week 4
 						
-						if (dontAdd != null && dontAdd.contains(lectID)) { //marked as done
-							System.out.println("\t finished" + new Entry(name +" Lecture "+lectID, 1.0, Double.valueOf(temp[0]), week1.plusDays(n+nDeadline), false) + "@" + week1.plusDays(n).getDayOfWeek());
+						if (dontAdd != null && dontAdd.contains(lectID)) { //marked as doneReviews
+							System.out.println("\t finished" + new Entry(name +" Lecture "+lectID, 1.0, Double.valueOf(temp1[0]), week1.plusDays(n+nDeadline), false) + "@" + week1.plusDays(n).getDayOfWeek());
 						}
 						else{
-							work.add(new ReviewEntry(name +" Lecture "+lectID, 1.0, Double.valueOf(temp[0]), week1.plusDays(n+nDeadline), false)) ; //add class to review todo list
+							work.add(new ReviewEntry(classIndex, name +" Lecture "+lectID, 1.0, Double.valueOf(temp1[0]), week1.plusDays(n+nDeadline), false)) ; //add class to review todo list
 							System.out.println("\t" + work.get(work.size()-1) + "@" + week1.plusDays(n+nDeadline).getDayOfWeek());
 						}
 						n += 7; //check next week
 					}
 				}
+				classIndex++;
 			}
 			getX.close();
+			getY.close();
 			oldWorkSize = work.size();
 			return;
 		}
 		return;
 	}
 
+	private void updateWork() {
+		Formatter newDone = null;
+		Scanner oldDone = null;
+		File oldDoneFile = null;
+		try {
+			oldDoneFile = new File("schoolWork.txt");
+			oldDone = new Scanner(oldDoneFile);
+			newDone = new Formatter("~schoolWork.txt");
+			//System.out.println("You created a file");
+		} catch (FileNotFoundException e1) { e1.printStackTrace(); }
+		if (newDone != null)
+		{
+			for (int i = 0; i < oldWorkSize; i++) {
+				
+			}
+			newDone.close();
+			oldDone.close();
+		
+			oldDoneFile.delete();
+
+			if (oldDoneFile.exists()) System.out.println("unable to edit doneReviews.txt");
+			File edit = new File ("~doneReviews.txt");
+			edit.renameTo(oldDoneFile);
+		}
+	}
+	
+	private void updateDone() {
+		Formatter newDone = null;
+		Scanner oldDone = null;
+		File oldDoneFile = null;
+		try {
+			oldDoneFile = new File("doneReviews.txt");
+			oldDone = new Scanner(oldDoneFile);
+			newDone = new Formatter("~doneReviews.txt");
+			//System.out.println("You created a file");
+		} catch (FileNotFoundException e1) { e1.printStackTrace(); }
+		if (newDone != null)
+		{
+			int i = 0;
+			while(oldDone.hasNextLine())
+			{
+				String newDoneLine = oldDone.nextLine();
+
+				for (int j = 0; j < doneReviews.get(i).size(); j++)
+					newDoneLine+=","+doneReviews.get(i).get(j);
+					
+				i++;
+				newDone.format("%s\n", newDoneLine); //update icon path
+			}
+			newDone.close();
+			oldDone.close();
+		
+			oldDoneFile.delete();
+
+			if (oldDoneFile.exists()) System.out.println("unable to edit doneReviews.txt");
+			File edit = new File ("~doneReviews.txt");
+			edit.renameTo(oldDoneFile);
+		}
+	}
+	
+	
+	private void append(String filename, final String s) throws IOException {
+		try
+		{
+		    FileWriter fw = new FileWriter(filename,true); //the true will append the new data
+		    fw.write("add a line\n");//appends the string to the file
+		    fw.close();
+		}
+		catch(IOException ioe)
+		{
+		    System.err.println("IOException: " + ioe.getMessage());
+		}
+	}
+	
 	DayOfWeek initialDayOfWeek(String a) {
 		switch(a) {
 			case "M": 
@@ -628,9 +728,10 @@ public class GUI extends JFrame {
 	}
 
 	private class ReviewEntry extends Entry {
-		ReviewEntry(String n, double di, double h, LocalDate de, boolean t) {
+		int classIndex;
+		ReviewEntry(int c, String n, double di, double h, LocalDate de, boolean t) {
 			super(n,di,h,de,t);
-			// TODO Auto-generated constructor stub
+			classIndex = c;
 		}
 	}
 	
