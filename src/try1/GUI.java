@@ -283,6 +283,21 @@ public class GUI extends JFrame {
 
 
 	private class Table extends DefaultTableModel {
+		
+		public Class getColumnClass(int column) {
+            switch (column) {
+            case 0:
+                return String.class;
+            case 1:
+                return String.class;
+            case 2:
+                return String.class;
+            case 3:
+                return String.class;
+            default:
+                return Boolean.class;
+            }
+		}
 		private static final long serialVersionUID = 1L;
 		
 		public String getColumnName(int col) {
@@ -305,7 +320,7 @@ public class GUI extends JFrame {
 				case 1: return formatter.format(work.get(tasksOrder.get(row)).deadline);
 				case 2: return String.valueOf(work.get(tasksOrder.get(row)).hr);
 				case 3: return String.valueOf(work.get(tasksOrder.get(row)).diff);
-				default: return (work.get(tasksOrder.get(row)).isFixed? "True":"F");
+				default: return (work.get(tasksOrder.get(row)).isFixed);
 			}
 		}
 
@@ -315,21 +330,21 @@ public class GUI extends JFrame {
 			if (!editTasks) editTasks = true;
 
 			switch(col) {
-			case 0: work.get(row).name = (String) value; break;
+			case 0: work.get(tasksOrder.get(row)).name = (String) value; break;
 			case 1: 
 				try {
 					LocalDate d = LocalDate.parse((String) value, formatter);
-					work.get(row).deadline = d;
+					work.get(tasksOrder.get(row)).deadline = d;
 				} catch (Exception e) { System.err.println(value+"invalid date"); }
 				break;
 			case 2:
 				Double h = null;
 				try {
 					h = Double.valueOf((String) value);
-					work.get(row).hr = h;
+					work.get(tasksOrder.get(row)).hr = h;
 				} catch (Exception e) { System.err.println(value+"invalid duration"); return;}
 				if (h < 0) System.err.println(value+"duration must be positive");
-				else work.get(row).diff = h;
+				else work.get(tasksOrder.get(row)).diff = h;
 				break;
 			case 3:
 				Double d = null;
@@ -337,10 +352,10 @@ public class GUI extends JFrame {
 					d = Double.valueOf((String) value);
 				} catch (Exception e) { System.err.println(value+"invalid difficulty"); return; }
 				if (d < 0 || d > 5) System.err.println(value+"difficulty between 0 and 5");
-				else work.get(row).diff = d;
+				else work.get(tasksOrder.get(row)).diff = d;
 				break;
 			default:
-				work.get(row).isFixed = !work.get(row).isFixed;
+				work.get(tasksOrder.get(row)).isFixed = (Boolean)value;
 			}
 		}
 	}
