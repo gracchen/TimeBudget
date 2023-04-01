@@ -6,7 +6,7 @@ public class MainTime {
 		GUI window = new GUI();
 		window.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
-		window.setSize(300,300);
+		window.setSize(400,350);
 		window.setVisible(true);
 	}
 }

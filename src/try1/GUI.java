@@ -1,11 +1,15 @@
 package try1;
+import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
@@ -28,21 +32,24 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.table.AbstractTableModel;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.event.ChangeListener;
+import javax.swing.table.JTableHeader;
+
 
 
 public class GUI extends JFrame {
@@ -68,8 +75,11 @@ public class GUI extends JFrame {
 	private List<SimpleEntry<JCheckBox, Integer>> checks;
 	private JTabbedPane tabPane;
 	private LocalDate week1 = LocalDate.of(2023, 3, 20); //spring quarter instruction starts April 3, this is dummy test var
-	private JTable list;
+	private JTable table; private JScrollPane js;
 	private boolean editTasks = false;
+	private List<Integer> tasksOrder; //changes which work indexes to show first depending on user's sort selection
+	private JLabel clickCol;
+	private JPanel taskTable, taskToolBar;
 	public GUI () {
 		super("TimeBudget");
 		pack();
@@ -175,58 +185,148 @@ public class GUI extends JFrame {
 				new ItemListener() {
 					public void itemStateChanged(ItemEvent event) {
 						if(event.getStateChange() == ItemEvent.SELECTED) {
-
 							showSelected(drop.getSelectedIndex());
 						}
-							
 					}
 				}
 				);
+		
+		//TASKS = two panels, toolbar and table itself
+		taskTable = new JPanel();
+		taskToolBar = new JPanel(); 
 
+		tasksOrder = IntStream.rangeClosed(0, oldWorkSize-1)
+			    .boxed().collect(Collectors.toList());
+		Collections.sort(tasksOrder, new EntrySortDeadline()); //default sort by deadline
 		//tasks
-		list = new JTable(new Table()) ;
-		tasks.add(list);
+		clickCol = new JLabel("Click col header to sort by it");
+		taskToolBar.add(clickCol);
+		
+		table = new JTable(new Table());
+		tasks.setLayout(new BorderLayout());
+		taskTable.setLayout(new BorderLayout());
+		js = new JScrollPane(table,
+		          ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS,
+		          ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		table.getColumnModel().getColumn(1).setPreferredWidth(15);
+		table.getColumnModel().getColumn(2).setPreferredWidth(1);
+		table.getColumnModel().getColumn(3).setPreferredWidth(1);
 
-		//settings
-
-		//writeWork();
+		//taskTable.add(js, BorderLayout.CENTER);
+		//tasks.add(taskToolBar,BorderLayout.NORTH);
+		tasks.add(js,BorderLayout.CENTER);
+		//sort upon click
+		JTableHeader header = table.getTableHeader();
+		header.addMouseListener(new TableHeaderMouseListener());
+		
+		//table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 		System.out.println("\nNow Printing Work[]: ");
 		printWork();
+		
 	}
+	
+	class EntrySortName implements Comparator<Integer> { //sort by name
+		public int compare(Integer o1, Integer o2) {
+			return work.get(o1).name.compareTo(work.get(o2).name); //(2) sort by deadline
+		}
+	}
+	
+	class EntrySortDeadline implements Comparator<Integer> { //sort by name
+		public int compare(Integer o1, Integer o2) {
+			return work.get(o1).deadline.compareTo(work.get(o2).deadline); //(2) sort by deadline
+		}
+	}
+	
+	class EntrySortDuration implements Comparator<Integer> { //sort by name
+		public int compare(Integer o1, Integer o2) {
+			return Double.compare(work.get(o1).hr ,work.get(o2).hr );
+		}
+	}
+	
+	class EntrySortDifficulty implements Comparator<Integer> { //sort by name
+		public int compare(Integer o1, Integer o2) {
+			return Double.compare(work.get(o1).diff ,work.get(o2).diff );
+		}
+	}
+	
+	public class TableHeaderMouseListener extends MouseAdapter {
+
+	    public void mouseClicked(MouseEvent event) {
+	    	Point point = event.getPoint();
+	    	int column = table.columnAtPoint(point);
+	        System.out.println("Header " + column + " clicked");
+	        switch(column) {
+	        case 0:
+	        	Collections.sort(tasksOrder, new EntrySortName()); break;
+	        case 1:
+	        	Collections.sort(tasksOrder, new EntrySortDeadline()); break;
+	        case 2:
+	        	Collections.sort(tasksOrder, new EntrySortDuration()); break;
+	        case 3:
+	        	Collections.sort(tasksOrder, new EntrySortDifficulty()); break;
+	        default:
+	        	
+	        }
+	    }
+	}
+	
 
 
 	private class Table extends AbstractTableModel {
-
-		/**
-		 * 
-		 */
 		private static final long serialVersionUID = 1L;
 
 		public String getColumnName(int col) {
-			return (col == 0 ? "Name":"Deadline");
+			switch(col) {
+				case 0: return "Name";
+				case 1: return "Deadline";
+				case 2: return "Hr";
+				default: return "Diff";
+			}
 		}
 
 		public int getRowCount() { return oldWorkSize; }
 
-		public int getColumnCount() { return 2; }
+		public int getColumnCount() { return 4; }
 
 		public Object getValueAt(int row, int col) {
-			if (col == 0) return work.get(row).name;
-			else return formatter.format(work.get(row).deadline);
+			switch(col) {
+				case 0: return work.get(tasksOrder.get(row)).name;
+				case 1: return formatter.format(work.get(tasksOrder.get(row)).deadline);
+				case 2: return String.valueOf(work.get(tasksOrder.get(row)).hr);
+				default: return String.valueOf(work.get(tasksOrder.get(row)).diff);
+			}
 		}
 
 		public boolean isCellEditable(int row, int col) { return true;}
 
 		public void setValueAt(Object value, int row, int col) {
 			if (!editTasks) editTasks = true;
-			if (col == 0) work.get(row).name = (String) value;
-			if (col == 1) {
+
+			switch(col) {
+			case 0: work.get(row).name = (String) value; break;
+			case 1: 
 				try {
 					LocalDate d = LocalDate.parse((String) value, formatter);
 					work.get(row).deadline = d;
-				} catch (Exception e) {
-					System.out.println(value+"invalid date");
-				}
+				} catch (Exception e) { System.err.println(value+"invalid date"); }
+				break;
+			case 2:
+				Double h = null;
+				try {
+					h = Double.valueOf((String) value);
+					work.get(row).hr = h;
+				} catch (Exception e) { System.err.println(value+"invalid duration"); return;}
+				if (h < 0) System.err.println(value+"duration must be positive");
+				else work.get(row).diff = h;
+				break;
+			default:
+				Double d = null;
+				try {
+					d = Double.valueOf((String) value);
+				} catch (Exception e) { System.err.println(value+"invalid difficulty"); return; }
+				if (d < 0 || d > 5) System.err.println(value+"difficulty between 0 and 5");
+				else work.get(row).diff = d;
+				break;
 			}
 		}
 	}
