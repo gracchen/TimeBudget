@@ -1,5 +1,6 @@
 package try1;
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -48,6 +49,7 @@ import javax.swing.ScrollPaneConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 
 
@@ -79,7 +81,7 @@ public class GUI extends JFrame {
 	private boolean editTasks = false;
 	private List<Integer> tasksOrder; //changes which work indexes to show first depending on user's sort selection
 	private JLabel clickCol;
-	private JPanel taskTable, taskToolBar;
+	private JPanel taskToolBar; private JButton delete, add;
 	public GUI () {
 		super("TimeBudget");
 		pack();
@@ -192,29 +194,36 @@ public class GUI extends JFrame {
 				);
 		
 		//TASKS = two panels, toolbar and table itself
-		taskTable = new JPanel();
+		//toolbar:
 		taskToolBar = new JPanel(); 
-
+		clickCol = new JLabel("Click col header to sort");
+		taskToolBar.add(clickCol);
+		delete = new JButton("Delete selected");
+		add = new JButton("+");
+		taskToolBar.add(delete);
+		taskToolBar.add(add);
+		
+		//table:
 		tasksOrder = IntStream.rangeClosed(0, oldWorkSize-1)
 			    .boxed().collect(Collectors.toList());
 		Collections.sort(tasksOrder, new EntrySortDeadline()); //default sort by deadline
-		//tasks
-		clickCol = new JLabel("Click col header to sort by it");
-		taskToolBar.add(clickCol);
 		
 		table = new JTable(new Table());
 		tasks.setLayout(new BorderLayout());
-		taskTable.setLayout(new BorderLayout());
+		table.getTableHeader().setReorderingAllowed(false);
 		js = new JScrollPane(table,
 		          ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS,
 		          ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-		table.getColumnModel().getColumn(1).setPreferredWidth(15);
-		table.getColumnModel().getColumn(2).setPreferredWidth(1);
-		table.getColumnModel().getColumn(3).setPreferredWidth(1);
+		table.getColumnModel().getColumn(1).setPreferredWidth(30);
+		table.getColumnModel().getColumn(2).setPreferredWidth(10);
+		table.getColumnModel().getColumn(3).setPreferredWidth(10);
+		table.getColumnModel().getColumn(4).setPreferredWidth(10);
 
 		//taskTable.add(js, BorderLayout.CENTER);
 		//tasks.add(taskToolBar,BorderLayout.NORTH);
-		tasks.add(js,BorderLayout.CENTER);
+		tasks.add(taskToolBar, BorderLayout.NORTH);
+		tasks.add(js, BorderLayout.CENTER);
+		
 		//sort upon click
 		JTableHeader header = table.getTableHeader();
 		header.addMouseListener(new TableHeaderMouseListener());
@@ -267,33 +276,36 @@ public class GUI extends JFrame {
 	        default:
 	        	
 	        }
+	        repaint();
 	    }
 	}
 	
 
 
-	private class Table extends AbstractTableModel {
+	private class Table extends DefaultTableModel {
 		private static final long serialVersionUID = 1L;
-
+		
 		public String getColumnName(int col) {
 			switch(col) {
 				case 0: return "Name";
 				case 1: return "Deadline";
 				case 2: return "Hr";
-				default: return "Diff";
+				case 3: return "Diff";
+				default: return "Fixed";
 			}
 		}
 
 		public int getRowCount() { return oldWorkSize; }
 
-		public int getColumnCount() { return 4; }
+		public int getColumnCount() { return 5; }
 
 		public Object getValueAt(int row, int col) {
 			switch(col) {
 				case 0: return work.get(tasksOrder.get(row)).name;
 				case 1: return formatter.format(work.get(tasksOrder.get(row)).deadline);
 				case 2: return String.valueOf(work.get(tasksOrder.get(row)).hr);
-				default: return String.valueOf(work.get(tasksOrder.get(row)).diff);
+				case 3: return String.valueOf(work.get(tasksOrder.get(row)).diff);
+				default: return (work.get(tasksOrder.get(row)).isFixed? "True":"F");
 			}
 		}
 
@@ -319,7 +331,7 @@ public class GUI extends JFrame {
 				if (h < 0) System.err.println(value+"duration must be positive");
 				else work.get(row).diff = h;
 				break;
-			default:
+			case 3:
 				Double d = null;
 				try {
 					d = Double.valueOf((String) value);
@@ -327,6 +339,8 @@ public class GUI extends JFrame {
 				if (d < 0 || d > 5) System.err.println(value+"difficulty between 0 and 5");
 				else work.get(row).diff = d;
 				break;
+			default:
+				work.get(row).isFixed = !work.get(row).isFixed;
 			}
 		}
 	}
