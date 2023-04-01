@@ -6,7 +6,48 @@ System requisites: At least JRE version 9
 Download prototype.jar and run it.
 
 ## Latest updates:
-#### 3/28/2023: 
+#### 3/31/2023:
+- All review and entry changes/marking done/etc commit to respective txt files upon closing app
+- interactive scrollable JTable in tasks tab (tutorial's JList can't handle multi cols, would've been way easier to format though)
+- JTable custom DefaultTableModel() for entry removal, data type (double, boolean), editability (review entries non-editable), validity of date/diff/hrs, etc.)
+- Custom mouse listener allow sorting JTable display by column (i.e. click "Name" to sort by alphabetical order, "Deadline" for soonest first)
+- JTable supports selecting multiple entries w/ shift or ctrl + click delete button, not yet reflects checked "done" entries in home page
+- flags to detect if edit worthy of re-running costly scheduler algorithm vs just diff name (which only requires a graphic refresh)
+- scheduler algorithm saves all review sessions for LAST (least priority, minimize negative hrs)
+     - also doesn't ignore unfinished reviews w/ passed deadline unlike normal assignments, bc SOFT deadlines
+- fix scheduler dupe's previous incomplete fix (accidentally forgot to consider base case again after "adding" problem case of splitting not working out)
+- ReviewEntry new variable member in class (saves which course entry matching reviewClasses.txt it originates from)
+
+Used features:
+- JTable, JScrollPane, BorderLayout (absolutely necessary for any semblance of working scrollable table, ridiculously difficult to realize)
+     - to disable user dragging and reordering cols: table.getTableHeader().setReorderingAllowed(false);  
+     - to make scrollpane vertical only: js = new JScrollPane(table, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+- custom JTable stuff, the fun part:
+     - detect user clicking table header: int col = table.columnAtPoint(event.getPoint());
+     - repaint vs revalidate() https://stackoverflow.com/questions/1097366/java-swing-revalidate-vs-repaint  
+           - repaint() for dirty screen.  revalidate() for recalculating layouts.
+     - private class MYTABLE extends DefaultTableModel:
+           - to use: JTable table = new JTable(new MYTABLE());
+           - public Class getColumnClass(int column) returns what each col's datatype is
+     - public boolean isCellEditable(int row, int col) { return true/false depending on your preferences;}
+     - public void setValueAt(Object value, int row, int col){} powerhorse of editing world of table, good to check user input validity
+     - removeRow(int row) -->  my new removeRows(int row):  copy og src code, modify to my purposes, voila
+	   - calls fireTableRowsDeleted(first rowDeleted, last rowDeleated)  which calls table to refresh graphics
+           - grab selected by usr: use array int[] select = table.getSelectedRows();
+- stupid reason primitives always can't use same funcs as complex dataTypes, i.e. compareTo, equal(), Collections.sort ---> Arrays.sort(), can't sort descending, stupid stuff
+
+- custom exit method: 
+     - addWindowListener(new WindowAdapter() {public void windowClosing(WindowEvent evt) {//do something}});
+     - set Default close operation to nothing
+- custom tab selection listener: 
+     - ChangeListener changeListener = new ChangeListener() {public void stateChanged(ChangeEvent e) {//tabPane.getSelectedIndex();};
+- array of ints from a to b: tasksOrder = IntStream.rangeClosed(0, n).boxed().collect(Collectors.toList());
+- excruciating pain that is setting up JTable:
+     1. init JTable & JScrollPane
+     2. set layout as BorderLayout (default flowlayout never works)
+     3. add scrollpane NOT TABLE to panel  with BorderLayout.CENTER  NOT TABLE TO SCROLLPANE
+
+#### 3/29/2023: 
 - some longer (and hopefully better) names for stuff
 - introduce two subclasses of Entry, ReviewEntry and DupeEntry. DupeEntry extra member var storing dupe's parent index
      - demo video here: https://drive.google.com/file/d/1ofaD01iu4rudOYGOkEhjETHkRD522dh1/view?usp=share_link

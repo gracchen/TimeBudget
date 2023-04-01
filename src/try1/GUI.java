@@ -1,6 +1,5 @@
 package try1;
 import java.awt.BorderLayout;
-import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -48,7 +47,6 @@ import javax.swing.JTable;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 
@@ -108,13 +106,14 @@ public class GUI extends JFrame {
 			@Override
 			public void stateChanged(ChangeEvent e) {
 		        
-		        int index = tabPane.getSelectedIndex();
 		        System.out.println("Tab changed to: " + tabPane.getSelectedIndex());
-				if (tabPane.getSelectedIndex() == 0 && editTasks) {
-					System.out.println("need to reschedule");
-					editTasks = false;
-					workScheduler(); //recalculate once detect edits made + switch back to home
-					showSelected(drop.getSelectedIndex());
+				if (tabPane.getSelectedIndex() == 0) {
+					if (editTasks) { 
+						System.out.println("need to reschedule");
+						editTasks = false;
+						workScheduler(); //recalculate once detect edits made + switch back to home
+					}
+					showSelected(drop.getSelectedIndex()); //refresh
 				}
 			}
 		};
@@ -199,6 +198,20 @@ public class GUI extends JFrame {
 		clickCol = new JLabel("Click col header to sort");
 		taskToolBar.add(clickCol);
 		delete = new JButton("Delete selected");
+		delete.addActionListener(
+				new ActionListener() {
+					public void actionPerformed(ActionEvent event) {
+						int[] select = table.getSelectedRows(); //takes selected items
+						
+						System.out.print("mark done ");
+						for (int i = 0; i < select.length; i++) {
+							System.out.print("work[" + tasksOrder.get(select[i]) + "], ");
+						}
+						((Table)table.getModel()).removeRows(table.getSelectedRows());
+						System.out.println("");
+					}
+				}
+			);
 		add = new JButton("+");
 		taskToolBar.add(delete);
 		taskToolBar.add(add);
@@ -231,7 +244,6 @@ public class GUI extends JFrame {
 		//table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 		System.out.println("\nNow Printing Work[]: ");
 		printWork();
-		
 	}
 	
 	class EntrySortName implements Comparator<Integer> { //sort by name
@@ -276,7 +288,7 @@ public class GUI extends JFrame {
 	        default:
 	        	
 	        }
-	        repaint();
+	        repaint(); //refresh
 	    }
 	}
 	
@@ -284,6 +296,17 @@ public class GUI extends JFrame {
 
 	private class Table extends DefaultTableModel {
 		
+		 public void removeRows(int[] rows) 
+		 {
+			 Arrays.sort(rows);
+			 for (int i = rows.length-1; i >= 0; i--) {
+				 done.add(tasksOrder.get(rows[i])); //mark for deletion
+				 System.out.println("done work["+tasksOrder.get(rows[i])+"]");
+				 tasksOrder.remove(rows[i]);
+			 }
+			 fireTableRowsDeleted(rows[0], rows[rows.length-1]); //tells table to refresh these rows only (less expensive)
+		 }
+		 
 		public Class getColumnClass(int column) {
             switch (column) {
             case 0:
@@ -291,9 +314,9 @@ public class GUI extends JFrame {
             case 1:
                 return String.class;
             case 2:
-                return String.class;
+                return Double.class;
             case 3:
-                return String.class;
+                return Double.class;
             default:
                 return Boolean.class;
             }
@@ -310,7 +333,7 @@ public class GUI extends JFrame {
 			}
 		}
 
-		public int getRowCount() { return oldWorkSize; }
+		public int getRowCount() { return tasksOrder.size(); }
 
 		public int getColumnCount() { return 5; }
 
@@ -318,45 +341,51 @@ public class GUI extends JFrame {
 			switch(col) {
 				case 0: return work.get(tasksOrder.get(row)).name;
 				case 1: return formatter.format(work.get(tasksOrder.get(row)).deadline);
-				case 2: return String.valueOf(work.get(tasksOrder.get(row)).hr);
-				case 3: return String.valueOf(work.get(tasksOrder.get(row)).diff);
+				case 2: return work.get(tasksOrder.get(row)).hr;
+				case 3: return work.get(tasksOrder.get(row)).diff;
 				default: return (work.get(tasksOrder.get(row)).isFixed);
 			}
 		}
 
-		public boolean isCellEditable(int row, int col) { return true;}
+		public boolean isCellEditable(int row, int col) { 
+			if (work.get(tasksOrder.get(row)) instanceof ReviewEntry) return false;
+			if (work.get(tasksOrder.get(row)) instanceof DupeEntry && 
+					work.get(((DupeEntry)(work.get(tasksOrder.get(row)))).parent) instanceof ReviewEntry) return false;
+			return true;
+		}
 
 		public void setValueAt(Object value, int row, int col) {
-			if (!editTasks) editTasks = true;
-
 			switch(col) {
 			case 0: work.get(tasksOrder.get(row)).name = (String) value; break;
 			case 1: 
 				try {
 					LocalDate d = LocalDate.parse((String) value, formatter);
+					System.out.println(d.isEqual(work.get(tasksOrder.get(row)).deadline));
+					if (!editTasks) editTasks = !(d.isEqual(work.get(tasksOrder.get(row)).deadline)); //should i re-run alg? 
 					work.get(tasksOrder.get(row)).deadline = d;
 				} catch (Exception e) { System.err.println(value+"invalid date"); }
 				break;
 			case 2:
-				Double h = null;
-				try {
-					h = Double.valueOf((String) value);
-					work.get(tasksOrder.get(row)).hr = h;
-				} catch (Exception e) { System.err.println(value+"invalid duration"); return;}
-				if (h < 0) System.err.println(value+"duration must be positive");
-				else work.get(tasksOrder.get(row)).diff = h;
+				if ((Double)value < 0) System.err.println(value+"duration must be positive");
+				else {
+					if (!editTasks) editTasks = !((Double)value == work.get(tasksOrder.get(row)).hr); //should i re-run alg? 
+					work.get(tasksOrder.get(row)).hr = (Double)value;
+				}
 				break;
 			case 3:
-				Double d = null;
-				try {
-					d = Double.valueOf((String) value);
-				} catch (Exception e) { System.err.println(value+"invalid difficulty"); return; }
-				if (d < 0 || d > 5) System.err.println(value+"difficulty between 0 and 5");
-				else work.get(tasksOrder.get(row)).diff = d;
+				if ((Double)value < 1 || (Double)value > 5) System.err.println(value+"difficulty must be between 0 and 5");
+				else {
+					if (!editTasks) editTasks = !((Double)value == work.get(tasksOrder.get(row)).diff); //should i re-run alg? 
+					work.get(tasksOrder.get(row)).diff = (Double)value;
+				}
 				break;
 			default:
 				work.get(tasksOrder.get(row)).isFixed = (Boolean)value;
+				editTasks = true;
 			}
+			System.out.println("editing work[" + tasksOrder.get(row) + "]");
+			System.out.println("\tnow: "+work.get(tasksOrder.get(row)));
+			System.out.println("\teditTasks= "+ editTasks);
 		}
 	}
 
@@ -560,7 +589,6 @@ public class GUI extends JFrame {
 			assignEntry(reviewToDo.get(i), true);
 		}
 	}
-
 
 	private void assignEntry(Integer i, boolean isReview) { 
 		Entry curr = work.get(i);
@@ -839,7 +867,7 @@ public class GUI extends JFrame {
 							System.out.println("\t finished" + new Entry(name +" Lecture "+lectID, 1.0, Double.valueOf(temp1[0]), week1.plusDays(n+nDeadline), false) + "@" + week1.plusDays(n).getDayOfWeek());
 						}
 						else{
-							work.add(new ReviewEntry(classIndex, name +" Lecture "+lectID, 1.0, Double.valueOf(temp1[0]), week1.plusDays(n+nDeadline), false)) ; //add class to review todo list
+							work.add(new ReviewEntry(classIndex, "*" + name +" Review "+lectID, 1.0, Double.valueOf(temp1[0]), week1.plusDays(n+nDeadline), false)) ; //add class to review todo list
 							System.out.println("\t" + work.get(work.size()-1) + "@" + week1.plusDays(n+nDeadline).getDayOfWeek());
 						}
 						n += 7; //check next week
