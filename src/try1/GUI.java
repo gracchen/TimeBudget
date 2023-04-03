@@ -60,7 +60,7 @@ public class GUI extends JFrame {
 	private List<List<Integer>> assign;
 	private List<List<String>> doneReviews; //list of ReviewEntry indexes marked doneReviews, to be deleted upon closing app
 	private Set<Integer> done; //list of indexes to "remove" from work upon exit
-	private JLabel msg;
+	private JTextField msg;
 	private static final long serialVersionUID = 1L;
 	private File dayOfWeekConstFile, dailyConstFile, schoolWorkFile, reviewClassesFile;
 	private double consts[], daily;
@@ -80,8 +80,10 @@ public class GUI extends JFrame {
 	private List<Integer> tasksOrder; //changes which work indexes to show first depending on user's sort selection
 	private JLabel clickCol;
 	private JPanel taskToolBar; private JButton delete, add;
+	private double hrsOnHwToday;
+	private LocalDate today;
 	//add new popup
-	private JPanel newEntry; private JTextField nameField, hrField, deadlineField, diffField; 
+	private JPanel newEntry; private JTextField nameField, hrField, deadlineField, diffField, hrsSpentField; 
 	public GUI () {
 		super("TimeBudget");
 		pack();
@@ -92,7 +94,7 @@ public class GUI extends JFrame {
 				onExit();
 			}
 		});
-
+		today = LocalDate.now();
 		home = new JPanel();
 		add (home);
 		home.setLayout(new FlowLayout());
@@ -132,6 +134,7 @@ public class GUI extends JFrame {
 
 		week = new LinkedList<LocalDate>();
 		budget = new ArrayList<Double>(Collections.nCopies(7,24.0));
+		hrsOnHwToday = 0.0;
 		work = new ArrayList<Entry>();
 		doneReviews = new ArrayList<List<String>>();
 		done = new HashSet<Integer>();
@@ -139,8 +142,8 @@ public class GUI extends JFrame {
 		readDailyConsts();
 		readSchoolWork();
 		addReviewToDo();
-
-		LocalDate curr = LocalDate.now();
+		getHrsOnHwToday();
+		LocalDate curr = today;
 		double weekendBudget = 0.0;
 		dateChoices = new ArrayList<String>();
 		dateChoices.add("Today");
@@ -160,8 +163,17 @@ public class GUI extends JFrame {
 		workScheduler();
 
 		//GUI PART!!!msg = new JLabel("hi");
-		msg = new JLabel();
+		msg = new JTextField();
 		home.add(msg);
+		msg.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent event) {
+				try {
+					hrsOnHwToday = Double.valueOf(event.getActionCommand());
+					workScheduler();
+					showSelected(drop.getSelectedIndex()); //refresh
+				} catch (Exception e) {System.out.println("invalid hrs spent today input");};
+			}
+		});
 
 		toggleBreak = new JButton("off break");
 		toggleBreak.addActionListener(
@@ -420,14 +432,15 @@ public class GUI extends JFrame {
 	public void onExit() {
 		commitDone();
 		commitWork();
-
+		commitHrsSpent();
 		System.err.println("Exit");
 		System.exit(0);
 	}
 
+	
 	void showSelected(int index) { 
 		//shows both leetcode + play and assigned stuff
-		msg.setText(String.valueOf(index));
+		msg.setText(String.valueOf(hrsOnHwToday));
 		if (show != null) {
 			show.removeAll(); //remove previous display
 			remove(show);
@@ -443,6 +456,9 @@ public class GUI extends JFrame {
 				for (int i = 0; i < checks.size(); ) {
 					if (checks.get(i).getKey().isSelected()) {
 						int curr = checks.get(i).getValue();
+
+						hrsOnHwToday += work.get(curr).hr; //+= hr of checked
+						msg.setText(String.valueOf(hrsOnHwToday));
 						if (work.get(curr) instanceof DupeEntry) //currently checked off is dupe
 						{
 							int parent = ((DupeEntry)work.get(curr)).parent; //parent
@@ -494,8 +510,10 @@ public class GUI extends JFrame {
 		checks = new ArrayList<SimpleEntry<JCheckBox, Integer>>(); //handler needs to check if is ReviewEntry, so also store int (index to assign)
 		checkHandler handler = new checkHandler();
 		for (int i = 0; i < assign.get(index).size(); i++) {
-
-			checks.add(new SimpleEntry<JCheckBox, Integer>(new JCheckBox(work.get(assign.get(index).get(i)).name + ",  " + work.get(assign.get(index).get(i)).hr + "h"), assign.get(index).get(i)));
+			System.out.println("now assign[" + index + "][" + i + "] = " + assign.get(index).get(i));
+			JCheckBox b = new JCheckBox(work.get(assign.get(index).get(i)).name + ",  " + work.get(assign.get(index).get(i)).hr + "h");
+			SimpleEntry a = new SimpleEntry<JCheckBox, Integer>(b, assign.get(index).get(i));
+			checks.add(a);
 			checks.get(checks.size()-1).getKey().setToolTipText("due " + formatter.format(work.get(assign.get(index).get(i)).deadline));
 			//System.out.println(":(" + checks.get(checks.size()-1).getKey().getText() + " " + checks.get(checks.size()-1).getValue());
 
@@ -557,7 +575,7 @@ public class GUI extends JFrame {
 	}
 
 	void printBudget() {
-		LocalDate curr = LocalDate.now();
+		LocalDate curr = today;
 		System.out.println("Date\tdayOfWeek  budget");
 		if (onBreak) {
 			for (int i = 0; i < 7; i++, curr = curr.plusDays(1))
@@ -593,6 +611,7 @@ public class GUI extends JFrame {
 	private void workScheduler() {	
 		if (onBreak) hrsLeft = new ArrayList<Double>(breakBudget);
 		else hrsLeft = new ArrayList<Double>(budget);
+		hrsLeft.set(0, (hrsLeft.get(0) - hrsOnHwToday < 0)? 0 : hrsLeft.get(0) - hrsOnHwToday); 
 		work.subList(oldWorkSize, work.size()).clear(); //removes any copies of originally read work
 		//that was inserted after, from indexes oldWorkSize, oldWorkSize+1......work.size()-1
 		assign = new ArrayList<List<Integer>>(); //reset assign
@@ -607,8 +626,8 @@ public class GUI extends JFrame {
 		List<Integer> reviewToDo = new ArrayList<Integer>(); //make it very last priority
 		for (int i = 0; i < oldWorkSize; i++) {
 			Entry curr = work.get(i);
-			//System.out.println(formatter.format(curr.deadline) + ":" + ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline) + "days " + dayToIndex(curr.deadline));
-			long n = ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline);
+			//System.out.println(formatter.format(curr.deadline) + ":" + ChronoUnit.DAYS.between(today, curr.deadline) + "days " + dayToIndex(curr.deadline));
+			long n = ChronoUnit.DAYS.between(today, curr.deadline);
 			if (done.contains(i)) continue;
 			else if (work.get(i) instanceof ReviewEntry) reviewToDo.add(i); //deal with all review entries at end less priority than true deadlines
 			else if (n >= 0 && n < 7) {
@@ -625,7 +644,7 @@ public class GUI extends JFrame {
 
 	private void assignEntry(Integer i, boolean isReview) { 
 		Entry curr = work.get(i);
-		int n = (int) ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline);
+		int n = (int) ChronoUnit.DAYS.between(today, curr.deadline);
 		if (n<=0 && isReview) n = 8; //deadline passed, assign review to any day this week
 
 		//System.out.println("HI");
@@ -676,8 +695,12 @@ public class GUI extends JFrame {
 							if (work.get(work.size()-1).hr <= hrsLeft.get(j)) { //doneReviews! all parts fitted
 								//System.out.println("it's okay, " + work.get(work.size()-1).name + " only needs " + work.get(work.size()-1).hr);
 								doCont = false;
-								assign.get(j).add(work.size()-1); //direct assign to day j
-								hrsLeft.set(j, hrsLeft.get(j) - work.get(work.size()-1).hr); //update hours of day j
+								if (numDupes != 1) {
+									assign.get(j).add(work.size()-1); //direct assign to day j
+									System.out.println("Aa\t" + (work.size()-1));
+									hrsLeft.set(j, hrsLeft.get(j) - work.get(work.size()-1).hr); //update hours of day j
+								}
+								
 							}
 							else { //gotta do more splitting
 								numDupes++;
@@ -685,7 +708,7 @@ public class GUI extends JFrame {
 								temp.add(work.size()-1); //save new child
 								work.get(work.size()-2).hr = hrsLeft.get(j); //assign previous copy to day j
 								assign.get(j).add(work.size()-2);
-
+								System.out.println("B\t" + (work.size()-1));
 								work.get(work.size()-1).hr -= hrsLeft.get(j); //save remaining portion of task in new copy
 								hrsLeft.set(j, 0.0); //which eats up all of day j's hrs left.
 								//System.out.println("now: " + work.get(work.size()-2).hr + " and " + work.get(work.size()-1).hr);
@@ -703,6 +726,7 @@ public class GUI extends JFrame {
 						}
 						else {
 							assign.get((int) n-1).add(work.size()-1); //index of remaining portion assigned to date n's list
+							System.out.println("C\t" + (work.size()-1));
 							hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - work.get(work.size()-1).hr); //subtract remain portion time from deadline hrsleft
 						}
 					}
@@ -754,6 +778,24 @@ public class GUI extends JFrame {
 		return -1;
 	}
 
+	private void getHrsOnHwToday() {
+		hrsOnHwToday = 0.0;
+		Scanner getX = null;
+		try {
+			getX = new Scanner(new File("todaySpent.txt"));
+		} catch (FileNotFoundException e1) { e1.printStackTrace(); }
+		if (getX == null) return;
+		try {
+			if (LocalDate.parse(getX.nextLine(), formatter).isEqual(today))
+			{
+				try {
+					hrsOnHwToday = Double.valueOf(getX.nextLine());
+				} catch (Exception e) { System.out.println("invalid duration in todaySpent.txt"); }
+			}
+		} catch (Exception e) {System.out.println("invalid date in todaySpent.txt");}
+		getX.close();
+	}
+	
 	private void readDayOfWeekConstants() {
 		Scanner getX = null;
 		try {
@@ -832,20 +874,18 @@ public class GUI extends JFrame {
 	}
 
 	private int daysBetweenDayOfWeeks(String x, String y) { //crappy slow way of implementing this
-		LocalDate now = LocalDate.now();
 		DayOfWeek a = initialDayOfWeek(x);
 		DayOfWeek b = initialDayOfWeek(y);
 		int A=0; 
-		for (; now.plusDays(A).getDayOfWeek() != a; A++);
+		for (; today.plusDays(A).getDayOfWeek() != a; A++);
 		int B=A;
-		for (; now.plusDays(B).getDayOfWeek() != b; B++);
+		for (; today.plusDays(B).getDayOfWeek() != b; B++);
 		//System.out.println("daysBetweenDayOfWeeks("+x+","+y+")="+(B-A));
 		return (B-A);
 	}
 
 	private void addReviewToDo() {
 		System.out.println("Generating Review Sessions...");
-		LocalDate Now = LocalDate.now();
 		Scanner getX = null;
 		Scanner getY = null;
 		try {
@@ -892,7 +932,7 @@ public class GUI extends JFrame {
 					else nDeadline  = daysBetweenDayOfWeeks(temp1[i], temp1[i+1]);
 					//System.out.println("\t" + nDeadline + " " + i);
 					//if class happened already
-					while (n >= 0 && week1.plusDays(n).isBefore(Now) || week1.plusDays(n).isEqual(Now)) {
+					while (n >= 0 && week1.plusDays(n).isBefore(today) || week1.plusDays(n).isEqual(today)) {
 
 						String lectID = (n/7+1)+"."+i; //week.lect#  i.e. 4.1 means 1st lecture of week 4
 
@@ -947,6 +987,20 @@ public class GUI extends JFrame {
 		}
 	}
 
+	private void commitHrsSpent() {
+		Formatter newDone = null;
+		try {
+			newDone = new Formatter("todaySpent.txt");
+			//System.out.println("You created a file");
+		} catch (FileNotFoundException e1) { e1.printStackTrace(); }
+		if (newDone != null)
+		{
+			newDone.format("%s\n%f\n", formatter.format(today), hrsOnHwToday);
+			newDone.close();			
+		}
+	}
+
+	
 	private void commitDone() {
 		System.out.println("commitWork()");
 		Formatter newDone = null;
