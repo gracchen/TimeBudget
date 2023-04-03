@@ -40,17 +40,17 @@ import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
+import javax.swing.JTextField;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
-
-
 
 public class GUI extends JFrame {
 	private JPanel home, tasks, settings;
@@ -80,6 +80,8 @@ public class GUI extends JFrame {
 	private List<Integer> tasksOrder; //changes which work indexes to show first depending on user's sort selection
 	private JLabel clickCol;
 	private JPanel taskToolBar; private JButton delete, add;
+	//add new popup
+	private JPanel newEntry; private JTextField nameField, hrField, deadlineField, diffField; 
 	public GUI () {
 		super("TimeBudget");
 		pack();
@@ -244,6 +246,20 @@ public class GUI extends JFrame {
 		//table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 		System.out.println("\nNow Printing Work[]: ");
 		printWork();
+		
+		//new entry window
+		newEntry = new JPanel(); 
+		nameField = new JTextField("Enter name");
+		diffField = new JTextField("Enter diff");
+		newEntry.add(nameField);
+		newEntry.add(diffField);
+		int result = JOptionPane.showConfirmDialog(null, newEntry, 
+				"Please Enter X and Y Values", JOptionPane.OK_CANCEL_OPTION);
+		if (result == JOptionPane.OK_OPTION) {
+			System.out.println("x value: " + nameField.getText());
+			System.out.println("y value: " + diffField.getText());
+		}
+		
 	}
 	
 	class EntrySortName implements Comparator<Integer> { //sort by name
@@ -292,19 +308,31 @@ public class GUI extends JFrame {
 	    }
 	}
 	
-
-
 	private class Table extends DefaultTableModel {
 		
-		 public void removeRows(int[] rows) 
+		public void refreshAll() {
+			for (int i = 0; i < tasksOrder.size();) {
+				if (done.contains(tasksOrder.get(i))) {
+					tasksOrder.remove(i);
+				}
+				else i++;
+			}
+			fireTableDataChanged();
+		}
+		 public int removeRows(int[] rows) 
 		 {
 			 Arrays.sort(rows);
+			 int removed = 0;
 			 for (int i = rows.length-1; i >= 0; i--) {
+				 if (work.get(tasksOrder.get(rows[i])) instanceof ReviewEntry) continue;
+				 removed++;
 				 done.add(tasksOrder.get(rows[i])); //mark for deletion
 				 System.out.println("done work["+tasksOrder.get(rows[i])+"]");
 				 tasksOrder.remove(rows[i]);
 			 }
 			 fireTableRowsDeleted(rows[0], rows[rows.length-1]); //tells table to refresh these rows only (less expensive)
+			 if (!editTasks && removed > 0) editTasks = true; //really did delete some
+			 return removed;
 		 }
 		 
 		public Class getColumnClass(int column) {
@@ -425,6 +453,7 @@ public class GUI extends JFrame {
 									int classIndex = ((ReviewEntry)work.get(parent)).classIndex;//mark parent review as doneReviews
 									String temp[] = work.get(parent).name.split(" ");
 									doneReviews.get(classIndex).add(temp[temp.length-1]); //get week#.lect# of name
+									done.add(checks.get(i).getValue());
 									System.out.println("\tfinished " + String.valueOf(temp[temp.length-1]) + " to class " + classIndex);
 								}
 								else done.add(parent); //if last dupe of non-review entry, also mark to remove upon exit
@@ -435,6 +464,7 @@ public class GUI extends JFrame {
 							if (work.get(curr) instanceof ReviewEntry)
 							{
 								System.out.println("work[" + checks.get(i).getValue() +"] is review");
+								done.add(checks.get(i).getValue());
 								int classIndex = ((ReviewEntry)work.get(curr)).classIndex; //mark review as doneReviews
 								String temp[] = work.get(curr).name.split(" ");
 								doneReviews.get(classIndex).add(temp[temp.length-1]); //get week#.lect# of name
@@ -455,6 +485,7 @@ public class GUI extends JFrame {
 					}
 					else i++;
 				}
+				((Table)table.getModel()).refreshAll();
 			}
 		}
 
@@ -578,13 +609,15 @@ public class GUI extends JFrame {
 			Entry curr = work.get(i);
 			//System.out.println(formatter.format(curr.deadline) + ":" + ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline) + "days " + dayToIndex(curr.deadline));
 			long n = ChronoUnit.DAYS.between(LocalDate.now(), curr.deadline);
-			if (work.get(i) instanceof ReviewEntry) reviewToDo.add(i); //deal with all review entries at end less priority than true deadlines
+			if (done.contains(i)) continue;
+			else if (work.get(i) instanceof ReviewEntry) reviewToDo.add(i); //deal with all review entries at end less priority than true deadlines
 			else if (n >= 0 && n < 7) {
 				System.out.println("assignEntry(" + i + ", f);");
 				assignEntry(i, false);
 			}
 		}
 		for (int i = 0; i < reviewToDo.size(); i++) {
+			if (done.contains(reviewToDo.get(i))) continue;
 			System.out.println("assignEntry(" + reviewToDo.get(i) + ", t);");
 			assignEntry(reviewToDo.get(i), true);
 		}
@@ -884,6 +917,7 @@ public class GUI extends JFrame {
 	}
 
 	private void commitWork() {
+		System.out.println("commitWork()");
 		Formatter newDone = null;
 		Scanner oldDone = null;
 		File oldDoneFile = null;
@@ -914,6 +948,7 @@ public class GUI extends JFrame {
 	}
 
 	private void commitDone() {
+		System.out.println("commitWork()");
 		Formatter newDone = null;
 		Scanner oldDone = null;
 		File oldDoneFile = null;
@@ -942,11 +977,11 @@ public class GUI extends JFrame {
 			oldDoneFile.delete();
 
 			if (oldDoneFile.exists()) System.out.println("unable to edit doneReviews.txt");
+			else System.out.println("edit worked");
 			File edit = new File ("~doneReviews.txt");
 			edit.renameTo(oldDoneFile);
 		}
 	}
-
 
 	private void append(String filename, final String s) throws IOException {
 		try
