@@ -74,7 +74,7 @@ public class GUI extends JFrame {
 	private JLabel stats, leet, play;
 	private List<SimpleEntry<JCheckBox, Integer>> checks;
 	private JTabbedPane tabPane;
-	private LocalDate week1 = LocalDate.of(2023, 3, 20); //spring quarter instruction starts April 3, this is dummy test var
+	private LocalDate week1 = LocalDate.of(2023, 4, 3); //spring quarter instruction starts April 3, this is dummy test var
 	private JTable table; private JScrollPane js;
 	private boolean editTasks = false;
 	private List<Integer> tasksOrder; //changes which work indexes to show first depending on user's sort selection
@@ -109,8 +109,8 @@ public class GUI extends JFrame {
 		ChangeListener changeListener = new ChangeListener() {
 			@Override
 			public void stateChanged(ChangeEvent e) {
-		        
-		        System.out.println("Tab changed to: " + tabPane.getSelectedIndex());
+
+				System.out.println("Tab changed to: " + tabPane.getSelectedIndex());
 				if (tabPane.getSelectedIndex() == 0) {
 					if (editTasks) { 
 						System.out.println("need to reschedule");
@@ -205,7 +205,7 @@ public class GUI extends JFrame {
 					}
 				}
 				);
-		
+
 		//TASKS = two panels, toolbar and table itself
 		//toolbar:
 		taskToolBar = new JPanel(); 
@@ -216,7 +216,7 @@ public class GUI extends JFrame {
 				new ActionListener() {
 					public void actionPerformed(ActionEvent event) {
 						int[] select = table.getSelectedRows(); //takes selected items
-						
+
 						System.out.print("mark done ");
 						for (int i = 0; i < select.length; i++) {
 							System.out.print("work[" + tasksOrder.get(select[i]) + "], ");
@@ -225,22 +225,22 @@ public class GUI extends JFrame {
 						System.out.println("");
 					}
 				}
-			);
+				);
 		add = new JButton("+");
 		taskToolBar.add(delete);
 		taskToolBar.add(add);
-		
+
 		//table:
 		tasksOrder = IntStream.rangeClosed(0, oldWorkSize-1)
-			    .boxed().collect(Collectors.toList());
+				.boxed().collect(Collectors.toList());
 		Collections.sort(tasksOrder, new EntrySortDeadline()); //default sort by deadline
-		
+
 		table = new JTable(new Table());
 		tasks.setLayout(new BorderLayout());
 		table.getTableHeader().setReorderingAllowed(false);
 		js = new JScrollPane(table,
-		          ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS,
-		          ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+				ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS,
+				ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 		table.getColumnModel().getColumn(1).setPreferredWidth(30);
 		table.getColumnModel().getColumn(2).setPreferredWidth(10);
 		table.getColumnModel().getColumn(3).setPreferredWidth(10);
@@ -250,15 +250,15 @@ public class GUI extends JFrame {
 		//tasks.add(taskToolBar,BorderLayout.NORTH);
 		tasks.add(taskToolBar, BorderLayout.NORTH);
 		tasks.add(js, BorderLayout.CENTER);
-		
+
 		//sort upon click
 		JTableHeader header = table.getTableHeader();
 		header.addMouseListener(new TableHeaderMouseListener());
-		
+
 		//table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 		System.out.println("\nNow Printing Work[]: ");
 		printWork();
-		
+
 		//new entry window
 		newEntry = new JPanel(); 
 		nameField = new JTextField("Enter name");
@@ -271,57 +271,57 @@ public class GUI extends JFrame {
 			System.out.println("x value: " + nameField.getText());
 			System.out.println("y value: " + diffField.getText());
 		}
-		
+
 	}
-	
+
 	class EntrySortName implements Comparator<Integer> { //sort by name
 		public int compare(Integer o1, Integer o2) {
 			return work.get(o1).name.compareTo(work.get(o2).name); //(2) sort by deadline
 		}
 	}
-	
+
 	class EntrySortDeadline implements Comparator<Integer> { //sort by name
 		public int compare(Integer o1, Integer o2) {
 			return work.get(o1).deadline.compareTo(work.get(o2).deadline); //(2) sort by deadline
 		}
 	}
-	
+
 	class EntrySortDuration implements Comparator<Integer> { //sort by name
 		public int compare(Integer o1, Integer o2) {
 			return Double.compare(work.get(o1).hr ,work.get(o2).hr );
 		}
 	}
-	
+
 	class EntrySortDifficulty implements Comparator<Integer> { //sort by name
 		public int compare(Integer o1, Integer o2) {
 			return Double.compare(work.get(o1).diff ,work.get(o2).diff );
 		}
 	}
-	
+
 	public class TableHeaderMouseListener extends MouseAdapter {
 
-	    public void mouseClicked(MouseEvent event) {
-	    	Point point = event.getPoint();
-	    	int column = table.columnAtPoint(point);
-	        System.out.println("Header " + column + " clicked");
-	        switch(column) {
-	        case 0:
-	        	Collections.sort(tasksOrder, new EntrySortName()); break;
-	        case 1:
-	        	Collections.sort(tasksOrder, new EntrySortDeadline()); break;
-	        case 2:
-	        	Collections.sort(tasksOrder, new EntrySortDuration()); break;
-	        case 3:
-	        	Collections.sort(tasksOrder, new EntrySortDifficulty()); break;
-	        default:
-	        	
-	        }
-	        repaint(); //refresh
-	    }
+		public void mouseClicked(MouseEvent event) {
+			Point point = event.getPoint();
+			int column = table.columnAtPoint(point);
+			System.out.println("Header " + column + " clicked");
+			switch(column) {
+			case 0:
+				Collections.sort(tasksOrder, new EntrySortName()); break;
+			case 1:
+				Collections.sort(tasksOrder, new EntrySortDeadline()); break;
+			case 2:
+				Collections.sort(tasksOrder, new EntrySortDuration()); break;
+			case 3:
+				Collections.sort(tasksOrder, new EntrySortDifficulty()); break;
+			default:
+
+			}
+			repaint(); //refresh
+		}
 	}
-	
+
 	private class Table extends DefaultTableModel {
-		
+
 		public void refreshAll() {
 			for (int i = 0; i < tasksOrder.size();) {
 				if (done.contains(tasksOrder.get(i))) {
@@ -331,45 +331,45 @@ public class GUI extends JFrame {
 			}
 			fireTableDataChanged();
 		}
-		 public int removeRows(int[] rows) 
-		 {
-			 Arrays.sort(rows);
-			 int removed = 0;
-			 for (int i = rows.length-1; i >= 0; i--) {
-				 if (work.get(tasksOrder.get(rows[i])) instanceof ReviewEntry) continue;
-				 removed++;
-				 done.add(tasksOrder.get(rows[i])); //mark for deletion
-				 System.out.println("done work["+tasksOrder.get(rows[i])+"]");
-				 tasksOrder.remove(rows[i]);
-			 }
-			 fireTableRowsDeleted(rows[0], rows[rows.length-1]); //tells table to refresh these rows only (less expensive)
-			 if (!editTasks && removed > 0) editTasks = true; //really did delete some
-			 return removed;
-		 }
-		 
+		public int removeRows(int[] rows) 
+		{
+			Arrays.sort(rows);
+			int removed = 0;
+			for (int i = rows.length-1; i >= 0; i--) {
+				if (work.get(tasksOrder.get(rows[i])) instanceof ReviewEntry) continue;
+				removed++;
+				done.add(tasksOrder.get(rows[i])); //mark for deletion
+				System.out.println("done work["+tasksOrder.get(rows[i])+"]");
+				tasksOrder.remove(rows[i]);
+			}
+			fireTableRowsDeleted(rows[0], rows[rows.length-1]); //tells table to refresh these rows only (less expensive)
+			if (!editTasks && removed > 0) editTasks = true; //really did delete some
+			return removed;
+		}
+
 		public Class getColumnClass(int column) {
-            switch (column) {
-            case 0:
-                return String.class;
-            case 1:
-                return String.class;
-            case 2:
-                return Double.class;
-            case 3:
-                return Double.class;
-            default:
-                return Boolean.class;
-            }
+			switch (column) {
+			case 0:
+				return String.class;
+			case 1:
+				return String.class;
+			case 2:
+				return Double.class;
+			case 3:
+				return Double.class;
+			default:
+				return Boolean.class;
+			}
 		}
 		private static final long serialVersionUID = 1L;
-		
+
 		public String getColumnName(int col) {
 			switch(col) {
-				case 0: return "Name";
-				case 1: return "Deadline";
-				case 2: return "Hr";
-				case 3: return "Diff";
-				default: return "Fixed";
+			case 0: return "Name";
+			case 1: return "Deadline";
+			case 2: return "Hr";
+			case 3: return "Diff";
+			default: return "Fixed";
 			}
 		}
 
@@ -379,11 +379,11 @@ public class GUI extends JFrame {
 
 		public Object getValueAt(int row, int col) {
 			switch(col) {
-				case 0: return work.get(tasksOrder.get(row)).name;
-				case 1: return formatter.format(work.get(tasksOrder.get(row)).deadline);
-				case 2: return work.get(tasksOrder.get(row)).hr;
-				case 3: return work.get(tasksOrder.get(row)).diff;
-				default: return (work.get(tasksOrder.get(row)).isFixed);
+			case 0: return work.get(tasksOrder.get(row)).name;
+			case 1: return formatter.format(work.get(tasksOrder.get(row)).deadline);
+			case 2: return work.get(tasksOrder.get(row)).hr;
+			case 3: return work.get(tasksOrder.get(row)).diff;
+			default: return (work.get(tasksOrder.get(row)).isFixed);
 			}
 		}
 
@@ -437,7 +437,6 @@ public class GUI extends JFrame {
 		System.exit(0);
 	}
 
-	
 	void showSelected(int index) { 
 		//shows both leetcode + play and assigned stuff
 		msg.setText(String.valueOf(hrsOnHwToday));
@@ -512,7 +511,7 @@ public class GUI extends JFrame {
 		for (int i = 0; i < assign.get(index).size(); i++) {
 			System.out.println("now assign[" + index + "][" + i + "] = " + assign.get(index).get(i));
 			JCheckBox b = new JCheckBox(work.get(assign.get(index).get(i)).name + ",  " + work.get(assign.get(index).get(i)).hr + "h");
-			SimpleEntry a = new SimpleEntry<JCheckBox, Integer>(b, assign.get(index).get(i));
+			SimpleEntry<JCheckBox, Integer> a = new SimpleEntry<JCheckBox, Integer>(b, assign.get(index).get(i));
 			checks.add(a);
 			checks.get(checks.size()-1).getKey().setToolTipText("due " + formatter.format(work.get(assign.get(index).get(i)).deadline));
 			//System.out.println(":(" + checks.get(checks.size()-1).getKey().getText() + " " + checks.get(checks.size()-1).getValue());
@@ -534,7 +533,7 @@ public class GUI extends JFrame {
 			play = new JLabel(formatDuration(hrsLeft.get(index) * 0.4) + " to play");
 			show.add(play,c);
 		}	
-		
+
 		revalidate();
 	}
 
@@ -674,60 +673,161 @@ public class GUI extends JFrame {
 			}
 			if (idealN == -1) //all dates before deadline no time even without leet+play
 			{ //forced to assign assign the day of deadline
-
-				//System.out.println("\n\tforcing: " + work.get(i) +"\n\t BEFORE:");
-				//printDates();
 				if (hrsLeft.get((int) n-1) - curr.hr < 0) //if need to split bc deadline also not enough time
 				{
-					List<Integer> temp = new ArrayList<Integer>();
-					temp.add(i); //first element is parent original
+					System.out.println("splitting " + curr.name);
 
 					work.add(new DupeEntry(i, work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //make copy of original entry at back of work[], cannot override original (for break toggle)
 					int numDupes = 1;
-					temp.add(work.size()-1); //record first child of original
+
 					boolean doCont = true;
 					if (isReview) n=8; //Review is soft deadline and no ideal days, so try fit all days before negative hours
-					for (int j = 0; j < n-1 && doCont; j++) //assign today? tmrw? day after? 
-					{
-						if (hrsLeft.get(j) > 0) //has some time to squeeze this task
+
+					int sumAsIdeal = 0;
+					for (int j = 0; j < n-1; j++) 
+						sumAsIdeal += (hrsLeft.get(j) < Ideal(week.get(j)))? 0 : hrsLeft.get(j) - Ideal(week.get(j));
+
+					if (sumAsIdeal >= curr.hr) { //best split case scenario, only take, at max, sweet free time out of each day
+						System.out.println("best case!");
+						for (int j = 0; j < n-1 && doCont; j++) //assign today? tmrw? day after? 
 						{
-							//System.out.println("hey! day "+  week.get(j) + " has hrs: " + hrsLeft.get(j));
-							if (work.get(work.size()-1).hr <= hrsLeft.get(j)) { //doneReviews! all parts fitted
-								//System.out.println("it's okay, " + work.get(work.size()-1).name + " only needs " + work.get(work.size()-1).hr);
-								doCont = false;
-								if (numDupes != 1) {
-									assign.get(j).add(work.size()-1); //direct assign to day j
-									System.out.println("Aa\t" + (work.size()-1));
-									hrsLeft.set(j, hrsLeft.get(j) - work.get(work.size()-1).hr); //update hours of day j
+							System.out.println("trying day " + j);
+							if (hrsLeft.get(j) > Ideal(week.get(j))) //has some extra time even w/ ideal leet+play
+							{
+								double extraTime = hrsLeft.get(j) - Ideal(week.get(j));
+								if (work.get(work.size()-1).hr <= extraTime) { //doneReviews! all parts fitted
+									//System.out.println("it's okay, " + work.get(work.size()-1).name + " only needs " + work.get(work.size()-1).hr);
+									doCont = false;
+									if (numDupes != 1) {
+										assign.get(j).add(work.size()-1); //direct assign to day j
+										System.out.println("day " + j + " has " + extraTime + " extra hrs, only need " + work.get(work.size()-1).hr);
+										hrsLeft.set(j, hrsLeft.get(j) - work.get(work.size()-1).hr); //update hours of day j
+									}
+
 								}
-								
+								else { //gotta do more splitting. Greedy, take entirety of free time of day j
+									numDupes++;
+									work.add(new DupeEntry(i, work.get(work.size()-1).name, work.get(work.size()-1).diff, work.get(work.size()-1).hr, work.get(work.size()-1).deadline, work.get(work.size()-1).isFixed)); //copy
+
+									System.out.println("\t\twork[2nd last] has " +  extraTime + " hrs now" );
+
+									work.get(work.size()-2).hr = extraTime; //assign previous copy to day j
+									assign.get(j).add(work.size()-2);
+
+									work.get(work.size()-1).hr -= extraTime; //save remaining portion of task in new copy
+
+									System.out.println("\t\twork[last] has " + work.get(work.size()-1).hr + "-" + extraTime + " hrs now" );
+									hrsLeft.set(j, (double) Ideal(week.get(j))); //which eats up all of day j's hrs left.
+									//System.out.println("now: " + work.get(work.size()-2).hr + " and " + work.get(work.size()-1).hr);
+								}
+								System.out.println("\t\t\t\t\tnow work[last] has " + work.get(work.size()-1).hr + " hrs left");
 							}
-							else { //gotta do more splitting
-								numDupes++;
-								work.add(new DupeEntry(i, work.get(i).name, work.get(i).diff, work.get(i).hr, work.get(i).deadline, work.get(i).isFixed)); //copy
-								temp.add(work.size()-1); //save new child
-								work.get(work.size()-2).hr = hrsLeft.get(j); //assign previous copy to day j
-								assign.get(j).add(work.size()-2);
-								System.out.println("B\t" + (work.size()-1));
-								work.get(work.size()-1).hr -= hrsLeft.get(j); //save remaining portion of task in new copy
-								hrsLeft.set(j, 0.0); //which eats up all of day j's hrs left.
-								//System.out.println("now: " + work.get(work.size()-2).hr + " and " + work.get(work.size()-1).hr);
+						}
+						if (doCont || numDupes==1) //still need to assign remaining portion, last resort is to deadline
+						{
+							System.out.println( work.get(i).name + "checking numDupes as "+ numDupes);
+							if (numDupes==1) {
+								if (n==8) n--;
+								work.remove(work.size()-1); //remove dupe, no need, just assign original to deadline
+								assign.get((int) n-1).add(i); //index of remaining portion assigned to date n's list
+								hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - work.get(i).hr); //subtract remain portion time from deadline hrsleft
+							}
+							else {
+								assign.get((int) n-1).add(work.size()-1); //index of remaining portion assigned to date n's list
+								System.out.println("C\t" + (work.size()-1));
+								hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - work.get(work.size()-1).hr); //subtract remain portion time from deadline hrsleft
 							}
 						}
 					}
-					if (doCont || numDupes==1) //still need to assign remaining portion, last resort is to deadline
-					{
-						System.out.println( work.get(i).name + "checking numDupes as "+ numDupes);
-						if (numDupes==1) {
-							if (n==8) n--;
-							work.remove(work.size()-1); //remove dupe, no need, just assign original to deadline
-							assign.get((int) n-1).add(i); //index of remaining portion assigned to date n's list
-							hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - work.get(i).hr); //subtract remain portion time from deadline hrsleft
+					else { //old alg:
+						System.out.println("unfortunate split case");
+						double takenLPTime = 0; //LP = leet + play time
+						double needLPTTake = curr.hr - sumAsIdeal; //how much leet+play time must be taken total from day 0 to day b4 deadline
+						for (int j = 0; j < n-1 && doCont; j++) //assign today? tmrw? day after? 
+						{
+							if (takenLPTime < needLPTTake) { //need to take all of today's time. 
+								System.out.println("trying day " + j);
+								if (hrsLeft.get(j) > 0) //has some time to squeeze this task
+								{
+									System.out.println("\tday " + j + " has " + hrsLeft.get(j) + " hrs left");
+									//System.out.println("hey! day "+  week.get(j) + " has hrs: " + hrsLeft.get(j));
+									if (work.get(work.size()-1).hr <= hrsLeft.get(j)) { //doneReviews! all parts fitted
+										//System.out.println("it's okay, " + work.get(work.size()-1).name + " only needs " + work.get(work.size()-1).hr);
+										doCont = false;
+										if (numDupes != 1) {
+											assign.get(j).add(work.size()-1); //direct assign to day j
+											System.out.println("day " + j + " has " + hrsLeft.get(j) + " hrs, only need " + work.get(work.size()-1).hr);
+											hrsLeft.set(j, hrsLeft.get(j) - work.get(work.size()-1).hr); //update hours of day j
+										}
+
+									}
+									else { //gotta do more splitting
+										numDupes++;
+										work.add(new DupeEntry(i, work.get(work.size()-1).name, work.get(work.size()-1).diff, work.get(work.size()-1).hr, work.get(work.size()-1).deadline, work.get(work.size()-1).isFixed)); //copy
+
+										System.out.println("\t\twork[2nd last] has " +  hrsLeft.get(j) + " hrs now" );
+
+										work.get(work.size()-2).hr = hrsLeft.get(j); //assign previous copy to day j
+										assign.get(j).add(work.size()-2);
+
+										work.get(work.size()-1).hr -= hrsLeft.get(j); //save remaining portion of task in new copy
+
+										System.out.println("\t\twork[last] has " + work.get(work.size()-1).hr + "-" + hrsLeft.get(j) + " hrs now" );
+										hrsLeft.set(j, 0.0); //which eats up all of day j's hrs left.
+										//System.out.println("now: " + work.get(work.size()-2).hr + " and " + work.get(work.size()-1).hr);
+									}
+									System.out.println("\t\t\t\t\tnow work[last] has " + work.get(work.size()-1).hr + " hrs left");
+								}
+								takenLPTime += Ideal(week.get(j)); //now i used up this much of day j's ideal time, count in total
+							}
+							else {
+								System.out.println("trying day " + j);
+								if (hrsLeft.get(j) > Ideal(week.get(j))) //has some extra time even w/ ideal leet+play
+								{
+									double extraTime = hrsLeft.get(j) - Ideal(week.get(j));
+									if (work.get(work.size()-1).hr <= extraTime) { //doneReviews! all parts fitted
+										//System.out.println("it's okay, " + work.get(work.size()-1).name + " only needs " + work.get(work.size()-1).hr);
+										doCont = false;
+										if (numDupes != 1) {
+											assign.get(j).add(work.size()-1); //direct assign to day j
+											System.out.println("day " + j + " has " + extraTime + " extra hrs, only need " + work.get(work.size()-1).hr);
+											hrsLeft.set(j, extraTime - work.get(work.size()-1).hr); //update hours of day j
+										}
+
+									}
+									else { //gotta do more splitting. Greedy, take entirety of free time of day j
+										numDupes++;
+										work.add(new DupeEntry(i, work.get(work.size()-1).name, work.get(work.size()-1).diff, work.get(work.size()-1).hr, work.get(work.size()-1).deadline, work.get(work.size()-1).isFixed)); //copy
+
+										System.out.println("\t\twork[2nd last] has " +  extraTime + " hrs now" );
+
+										work.get(work.size()-2).hr = extraTime; //assign previous copy to day j
+										assign.get(j).add(work.size()-2);
+
+										work.get(work.size()-1).hr -= extraTime; //save remaining portion of task in new copy
+
+										System.out.println("\t\twork[last] has " + work.get(work.size()-1).hr + "-" + extraTime + " hrs now" );
+										hrsLeft.set(j, (double) Ideal(week.get(j))); //which eats up all of day j's hrs left.
+										//System.out.println("now: " + work.get(work.size()-2).hr + " and " + work.get(work.size()-1).hr);
+									}
+									System.out.println("\t\t\t\t\tnow work[last] has " + work.get(work.size()-1).hr + " hrs left");
+								}
+							}
 						}
-						else {
-							assign.get((int) n-1).add(work.size()-1); //index of remaining portion assigned to date n's list
-							System.out.println("C\t" + (work.size()-1));
-							hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - work.get(work.size()-1).hr); //subtract remain portion time from deadline hrsleft
+						if (doCont || numDupes==1) //still need to assign remaining portion, last resort is to deadline
+						{
+							System.out.println( work.get(i).name + "checking numDupes as "+ numDupes);
+							if (numDupes==1) {
+								if (n==8) n--;
+								work.remove(work.size()-1); //remove dupe, no need, just assign original to deadline
+								assign.get((int) n-1).add(i); //index of remaining portion assigned to date n's list
+								hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - work.get(i).hr); //subtract remain portion time from deadline hrsleft
+							}
+							else {
+								assign.get((int) n-1).add(work.size()-1); //index of remaining portion assigned to date n's list
+								System.out.println("C\t" + (work.size()-1));
+								hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - work.get(work.size()-1).hr); //subtract remain portion time from deadline hrsleft
+							}
 						}
 					}
 					/*else if (numDupes==1)
@@ -795,7 +895,7 @@ public class GUI extends JFrame {
 		} catch (Exception e) {System.out.println("invalid date in todaySpent.txt");}
 		getX.close();
 	}
-	
+
 	private void readDayOfWeekConstants() {
 		Scanner getX = null;
 		try {
@@ -1000,7 +1100,7 @@ public class GUI extends JFrame {
 		}
 	}
 
-	
+
 	private void commitDone() {
 		System.out.println("commitWork()");
 		Formatter newDone = null;

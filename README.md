@@ -6,6 +6,21 @@ System requisites: At least JRE version 9
 Download prototype.jar and run it.
 
 ## Latest updates:
+#### 4/4/2023
+- added syncing from home tab's checked items to refresh table in tasks tab
+- fix bug where not updating remaining hours of splitted work entry causing sum of hours of splitted to be greater than total assignment duration.
+- adjust workScheduler() algorithm's splitting decision-making. (if needs to split because none of day 0 to day b4 deadline can completely fit entire assignment)
+     - "total sum" = first try calculate how much free time total from day 0 to day b4 deadline IF dedicate ideal hrs for leet+play for all of these days (currently only builtin to exe as variables weekEndIdeal and weekDayIdeal) 
+     - if the above "total sum" >= entire assignment duration, then just take ideal free time from each until entire assignment fits
+     - if not, keep track how many hours of ideal leet+play time instead dedicated to this assignment, and eat up entire budget of day 0..n-1 until total sum of ideal leet+play hrs eaten >= the difference between "total sum" and entire assignment's duration
+          - meaning the remaining days I can just take free time and leave in ideal leet+play. 
+
+Note: even with adjust and bug fix, still far from perfect algorithm with tons of copied, eye-sore code and works in absolutes (take all time from ideal, take all from budget, etc. of soonest day from today) but tiny bit better
+     - allows for review assigning to seep in afterwards
+     - more ideal hrs instead of 0'ing everything during weekday and leaving weekend untouched simply because I have 10 hour homework split completely disregarding ideals.
+
+
+
 #### 3/31/2023:
 - All review and entry changes/marking done/etc commit to respective txt files upon closing app
 - interactive scrollable JTable in tasks tab (tutorial's JList can't handle multi cols, would've been way easier to format though)
