@@ -1,5 +1,4 @@
 package try1;
-import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -27,13 +26,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -46,7 +41,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
-import javax.swing.ScrollPaneConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableModel;
@@ -66,7 +60,7 @@ public class GUI extends JFrame {
 	private DateTimeFormatter formatter;
 	private JButton toggleBreak;
 	private boolean onBreak;
-	private int weekDayIdeal = 1, weekEndIdeal = 6, oldWorkSize;
+	private int weekDayIdeal = 1, weekEndIdeal = 6;
 	private List<String> dateChoices;
 	private JComboBox<String> drop;
 	private JPanel show;
@@ -74,7 +68,7 @@ public class GUI extends JFrame {
 	private List<SimpleEntry<JCheckBox, Integer>> checks;
 	private JTabbedPane tabPane;
 	private LocalDate week1 = LocalDate.of(2023, 4, 3); //spring quarter instruction starts April 3, this is dummy test var
-	private JTable workTable, reviewTable; private JScrollPane js1, js2;
+	private JTable workTable, reviewTable; 
 	private boolean editTasks = false;
 	private List<Integer> tasksOrder; //changes which work indexes to show first depending on user's sort selection
 	private JLabel clickCol;
@@ -113,6 +107,7 @@ public class GUI extends JFrame {
 		add(home);
 		home.setLayout(new FlowLayout());
 		tasks = new JPanel();
+		
 		settings = new JPanel();
 
 		tabPane = new JTabbedPane();
@@ -129,7 +124,7 @@ public class GUI extends JFrame {
 					if (editTasks) { 
 						System.out.println("need to reschedule");
 						editTasks = false;
-						//workScheduler(); //recalculate once detect edits made + switch back to home
+						workScheduler(); //recalculate once detect edits made + switch back to home
 					}
 					showSelected(drop.getSelectedIndex()); //refresh
 				}
@@ -151,7 +146,7 @@ public class GUI extends JFrame {
 		readDayOfWeekConstants();
 		readDailyConsts();
 		//-readSchoolWork();
-		
+
 		getHrsOnHwToday();
 		LocalDate curr = today;
 		double weekendBudget = 0.0;
@@ -168,7 +163,7 @@ public class GUI extends JFrame {
 
 		breakBudget = new ArrayList<Double>(Collections.nCopies(7,weekendBudget));
 		addReviewToDo();
-		//workScheduler();
+		workScheduler();
 
 		//GUI PART!!!msg = new JLabel("hi");
 		msg = new JTextField();
@@ -177,7 +172,7 @@ public class GUI extends JFrame {
 			public void actionPerformed(ActionEvent event) {
 				try {
 					hrsOnHwToday = Double.valueOf(event.getActionCommand());
-					//workScheduler();
+					workScheduler();
 					showSelected(drop.getSelectedIndex()); //refresh
 				} catch (Exception e) {System.out.println("invalid hrs spent today input");};
 			}
@@ -190,7 +185,7 @@ public class GUI extends JFrame {
 						onBreak = !onBreak; //toggle bool
 						System.out.println(onBreak);
 						toggleBreak.setText(onBreak? "on break" : "off break");
-						//workScheduler();
+						workScheduler();
 						printBudget();
 						printAssigned();
 						printWork();
@@ -203,7 +198,7 @@ public class GUI extends JFrame {
 		//DROPDOWN GUI:
 		drop = new JComboBox<String>(dateChoices.toArray(new String[dateChoices.size()])); //param = array of options
 		home.add(drop);
-		//showSelected(0); //default show today
+		showSelected(0); //default show today
 		drop.addItemListener(
 				new ItemListener() {
 					public void itemStateChanged(ItemEvent event) {
@@ -217,38 +212,33 @@ public class GUI extends JFrame {
 		//TASKS = two panels, toolbar and workTable itself
 		//toolbar:
 		taskToolBar = new JPanel(); 
+		GridBagConstraints gbc = new GridBagConstraints();
+		gbc.gridx = 0; gbc.gridy = 0;
+		tasks.add(taskToolBar, gbc);
 		clickCol = new JLabel("Click col workHeader to sort");
 		taskToolBar.add(clickCol);
 		delete = new JButton("Delete selected");
 		delete.addActionListener(
 				new ActionListener() {
 					public void actionPerformed(ActionEvent event) {
-						int[] select = workTable.getSelectedRows(); //takes selected items
-
-						System.out.print("mark done ");
-						for (int i = 0; i < select.length; i++) {
-							System.out.print("work[" + tasksOrder.get(select[i]) + "], ");
-						}
 						workModel.removeRows(workTable.getSelectedRows());
-						System.out.println("");
 					}
 				}
 				);
 		add = new JButton("+");
 		taskToolBar.add(delete);
 		taskToolBar.add(add);
-		
+
 		tasks.setLayout(new GridBagLayout());
-		GridBagConstraints gbc = new GridBagConstraints();
 		
 		//workTable:
-		gbc.gridx = 0; gbc.gridy = 0;
+		gbc.gridx = 0; gbc.gridy = 1;
 		workModel = new WorkTable();
 		workTable = new JTable(workModel);
 		workModel.loadTable();
-		
+
 		workTable.getTableHeader().setReorderingAllowed(false);
-		
+
 		tasks.add(new JScrollPane(workTable), gbc);
 		/*
 		 * workTable.getColumnModel().getColumn(1).setPreferredWidth(30);
@@ -256,14 +246,14 @@ public class GUI extends JFrame {
 		 * workTable.getColumnModel().getColumn(3).setPreferredWidth(10);
 		 * workTable.getColumnModel().getColumn(4).setPreferredWidth(10);
 		 */
-		
+
 		reviewModel = new ReviewTable();
 		reviewTable = new JTable(reviewModel);
 		reviewModel.loadTable();
 		reviewTable.getTableHeader().setReorderingAllowed(false);
 		gbc.gridx = 1;
 		tasks.add(new JScrollPane(reviewTable),gbc);
-		
+
 		//sort upon click
 		JTableHeader workHeader = workTable.getTableHeader();
 		workHeader.addMouseListener(new WorkTableHeaderMouseListener());
@@ -297,7 +287,7 @@ public class GUI extends JFrame {
 			repaint(); //refresh
 		}
 	}
-	
+
 	public class ReviewTableHeaderMouseListener extends MouseAdapter {
 		public void mouseClicked(MouseEvent event) {
 			Point point = event.getPoint();
@@ -309,6 +299,9 @@ public class GUI extends JFrame {
 	}
 
 	private class WorkTable extends DefaultTableModel {
+		public void refreshAll() {
+			fireTableDataChanged();
+		}
 		public void removeRows(int[] rows) 
 		{
 			for (int i = 0; i < rows.length; i++)
@@ -334,14 +327,14 @@ public class GUI extends JFrame {
 				System.out.println("successfully imported mySQL workTable to JTable");
 			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
 		}
-		public Class getColumnClass(int column) {
+		public Class<?> getColumnClass(int column) {
 			switch (column) {
 			case 0:	//id
 				return Integer.class;
 			case 1:	//name
 				return String.class;
 			case 2:	//deadline
-				return Date.class;
+				return String.class;
 			case 3:	//hr
 				return Double.class;
 			case 4:	//diff
@@ -362,8 +355,21 @@ public class GUI extends JFrame {
 			}
 		}
 		public int getColumnCount() { return 6; }
+		public void setValueAt(Object value, int row, int col) {
+			if (col == 2) {
+				try {
+					LocalDate d = LocalDate.parse((String) value);
+					updateWork((int)workModel.getValueAt(row, 0), col, d); 
+				} catch (Exception e) { System.err.println(value+" invalid date"); }
+			}
+			else
+				updateWork((int)workModel.getValueAt(row, 0), col, value); //0th col of row is mysql id
+		}
+		public boolean isCellEditable(int row, int col) {
+			return (col != 0); //id col not editable
+		}
 	}
-	
+
 	private class ReviewTable extends DefaultTableModel {
 		public void removeRows(int[] rows) 
 		{
@@ -390,7 +396,7 @@ public class GUI extends JFrame {
 			} catch (SQLException e) {e.printStackTrace(); System.err.println("load review workTable failed");}
 		}
 
-		public Class getColumnClass(int column) {
+		public Class<?> getColumnClass(int column) {
 			switch (column) {
 			case 0:	//id
 			case 1:	//classID
@@ -422,7 +428,35 @@ public class GUI extends JFrame {
 		public int getColumnCount() { return 7; }
 	}
 
+	private void removeWork(int id) {
+		runSQL("delete from " + tableName + " where id = " + id, true);
+		return;
+	}
+
+	private void updateWork(int id, int col, Object value) {
+		switch(col) {
+		case 1: 
+			runSQL("update " + tableName + " set name = \'" + value + "\' where id = " + id, true);
+			break;
+		case 2: 
+			runSQL("update " + tableName + " set deadline = \'" + value + "\' where id = " + id, true);
+			break;
+		case 3: 
+			runSQL("update " + tableName + " set hr = " + value + " where id = " + id, true);
+			break;
+		case 4: 
+			runSQL("update " + tableName + " set diff = " + value + " where id = " + id, true);
+			break;
+		case 5:
+			runSQL("update " + tableName + " set fixed = " + value + " where id = " + id, true);
+			break;
+		}	
+		workScheduler();
+		return;
+	}
+
 	void showSelected(int index) { 
+		System.out.println("showSelected("+index+");");
 		//shows both leetcode + play and assigned stuff
 		msg.setText(String.valueOf(hrsOnHwToday));
 		if (show != null) {
@@ -433,50 +467,25 @@ public class GUI extends JFrame {
 		GridBagConstraints c = new GridBagConstraints();
 		show.setLayout(new GridBagLayout());
 
-		home.add(show);
-
-		/*		class checkHandler implements ItemListener { 
+		home.add(show);	//checks[i][2] = list of checkboxes that match assign[day][i], each checkbox + mysql id
+		//assign[7][n][2] = for each day, assigned some n work, each work = int (mysql id) & double (duration)
+		class checkHandler implements ItemListener { 
 			public void itemStateChanged(ItemEvent event) { 
 				for (int i = 0; i < checks.size(); ) {
 					if (checks.get(i).getKey().isSelected()) {
-						int curr = checks.get(i).getValue();
-
-						hrsOnHwToday += work.get(curr).hr; //+= hr of checked
+						int id = checks.get(i).getValue(); //mysql id of the checked box
+						double durDone = assign.get(index).get(i).getValue();
+						hrsOnHwToday += durDone; //+= assigned duration for that entry = assign[day][i][1]
 						msg.setText(String.valueOf(hrsOnHwToday));
-						if (work.get(curr) instanceof DupeEntry) //currently checked off is dupe
-						{
-							int parent = ((DupeEntry)work.get(curr)).parent; //parent
-							System.out.println("work["+curr+"] is dupe of work["+parent+"]");
-							work.get(parent).hr -= work.get(curr).hr; //INSTEAD OF OVERCOMPLEX MERGING DUPES
-							if (work.get(parent).hr <= 0) { //last dupe of entry
-								if (work.get(parent) instanceof ReviewEntry) {
-									int classIndex = ((ReviewEntry)work.get(parent)).classIndex;//mark parent review as doneReviews
-									String temp[] = work.get(parent).name.split(" ");
-									doneReviews.get(classIndex).add(temp[temp.length-1]); //get week#.lect# of name
-									done.add(checks.get(i).getValue());
-									System.out.println("\tfinished " + String.valueOf(temp[temp.length-1]) + " to class " + classIndex);
-								}
-								else done.add(parent); //if last dupe of non-review entry, also mark to remove upon exit
+
+						runSQL("select * from " + tableName + " where id = " + id, false);
+						try {
+							if (rs.next()) {
+								double durLeft = rs.getDouble("hr");
+								if (durLeft - durDone <= 0) removeWork(id);
+								else updateWork(id, 2, durLeft - durDone); //col 3 is hr
 							}
-						}
-						else
-						{
-							if (work.get(curr) instanceof ReviewEntry)
-							{
-								System.out.println("work[" + checks.get(i).getValue() +"] is review");
-								done.add(checks.get(i).getValue());
-								int classIndex = ((ReviewEntry)work.get(curr)).classIndex; //mark review as doneReviews
-								String temp[] = work.get(curr).name.split(" ");
-								doneReviews.get(classIndex).add(temp[temp.length-1]); //get week#.lect# of name
-								System.out.println("\tfinished " + String.valueOf(temp[temp.length-1]) + " to class " + classIndex);
-							}
-							else {
-								System.out.println("work[" + curr +"] NOT review");
-								done.add(curr); //if non-review entry, remove checked upon exit
-							}
-						}
-						//unintended awesome design: don't have to edit work[ ] itself, messing up indexes. Simply
-						//unassign from assign [ ], voila! 
+						} catch (SQLException e) {e.printStackTrace();}
 
 						assign.get(drop.getSelectedIndex()).remove(checks.get(i).getValue()); //unassign checked item
 						show.remove(checks.get(i).getKey());
@@ -488,12 +497,11 @@ public class GUI extends JFrame {
 				workModel.loadTable();
 			}
 		}
-		 */
 
 		c.fill = GridBagConstraints.HORIZONTAL;    //fill entire cell with text to center
 		c.gridwidth = 4; c.gridx = 0; c.gridy = 0;   //coords + width of msg element
 		checks = new ArrayList<SimpleEntry<JCheckBox, Integer>>(); //handler needs to check if is ReviewEntry, so also store int (index to assign)
-		//-checkHandler handler = new checkHandler();
+		checkHandler handler = new checkHandler();
 		for (int i = 0; i < assign.get(index).size(); i++) {
 			runSQL("select * from " + tableName + " where id = " + assign.get(index).get(i).getKey() + ";", false);
 			Entry temp = null;
@@ -507,13 +515,13 @@ public class GUI extends JFrame {
 					checks.get(checks.size()-1).getKey().setToolTipText("due " + formatter.format(temp.deadline));
 					//System.out.println(":(" + checks.get(checks.size()-1).getKey().getText() + " " + checks.get(checks.size()-1).getValue());
 
-					//-checks.get(checks.size()-1).getKey().addItemListener(handler);
+					checks.get(checks.size()-1).getKey().addItemListener(handler);
 					show.add(checks.get(checks.size()-1).getKey(), c);
 					c.gridy++;
 				}
 			} catch (SQLException e) {e.printStackTrace();}
 
-			
+
 		}
 
 		stats = new JLabel(hrsLeft.get(index) + "/" + (onBreak? breakBudget.get(index) : budget.get(index)) + "h free"); 
@@ -612,14 +620,6 @@ public class GUI extends JFrame {
 		}
 
 		runSQL("select * from " + tableName + " order by fixed desc, deadline, diff desc", false);
-		/*
-		 * 		try {
-			while (rs.next())
-				System.out.printf("%s\t%s\t%s\t%s\t%s\t%s\n",rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
-		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}*/
 
 		//List<Integer> reviewToDo = new ArrayList<Integer>(); //make it very last priority
 		try {
@@ -769,7 +769,6 @@ public class GUI extends JFrame {
 		}
 	}
 
-
 	private int dayToIndex(LocalDate y) {
 		return dayToIndex(y.getDayOfWeek());
 	}
@@ -885,7 +884,7 @@ public class GUI extends JFrame {
 			} catch (SQLException e) {e.printStackTrace();}
 		}
 		if (!doGenerate) return; //reviews already generated, do nothing
-		
+
 		Scanner getX = null;
 		try {
 			getX = new Scanner(reviewClassesFile);
