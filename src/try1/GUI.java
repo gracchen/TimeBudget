@@ -53,7 +53,8 @@ public class GUI extends JFrame {
 	private JPanel home, tasks, settings;
 	private List<LocalDate> week;
 	private List<Double> breakBudget, budget, hrsLeft; //break vs non-break budget
-	private List<List<SimpleEntry<Integer, Double>>> assign; //id + length
+	private List<List<SimpleEntry<Integer, Double>>> assignWork; //id + length
+	private List<List<SimpleEntry<Integer, Double>>> assignReview; //id + length
 	private JTextField msg;
 	private static final long serialVersionUID = 1L;
 	private File dayOfWeekConstFile, dailyConstFile, reviewClassesFile;
@@ -66,12 +67,11 @@ public class GUI extends JFrame {
 	private JComboBox<String> drop;
 	private JPanel show;
 	private JLabel stats, leet, play;
-	private List<SimpleEntry<JCheckBox, Integer>> checks;
+	private List<SimpleEntry<JCheckBox, Integer>> workChecks, reviewChecks;
 	private JTabbedPane tabPane;
 	private LocalDate week1 = LocalDate.of(2023, 4, 3); //spring quarter instruction starts April 3, this is dummy test var
 	private JTable workTable, reviewTable; 
 	private boolean editTasks = false;
-	private List<Integer> tasksOrder; //changes which work indexes to show first depending on user's sort selection
 	private JLabel clickCol;
 	private JPanel taskToolBar; private JButton delete, add;
 	private double hrsOnHwToday;
@@ -229,7 +229,7 @@ public class GUI extends JFrame {
 		add = new JButton("+");
 
 		//new entry window
-		JFrame newEntry = new JFrame(); 
+		JFrame newEntry = new JFrame("Create a new work entry"); 
 		newEntry.setLayout(new GridBagLayout());
 		newEntry.setPreferredSize(new Dimension(400,300));
 		JTextField nField = new JTextField();
@@ -243,7 +243,7 @@ public class GUI extends JFrame {
 		duField.setText("Duration");
 		diField.setText("Difficulty");
 		fField.setText("Fixed?");
-		
+
 
 		k.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -252,7 +252,7 @@ public class GUI extends JFrame {
 					System.err.println("invalid name");
 					return;
 				}
-				
+
 				if (!(fField.getText().equals("0") || fField.getText().equals("1"))) {
 					System.err.println("invalid boolean");
 					return;
@@ -325,7 +325,7 @@ public class GUI extends JFrame {
 				);
 
 		add.addActionListener(
-				new ActionListener() {
+				new ActionListener() { //show creation popup if not yet open
 					public void actionPerformed(ActionEvent event) {
 						if (!createPopupOpen) {
 							createPopupOpen = true;
@@ -333,16 +333,6 @@ public class GUI extends JFrame {
 							newEntry.pack();
 							newEntry.setLocationRelativeTo(null);
 						}
-
-						/*
-						System.out.println("name: " + nField.getText());
-						System.out.println("deadline: " + deField.getText());
-						System.out.println("duration: " + duField.getText());
-						System.out.println("difficulty: " + diField.getText());
-						System.out.println("fixed?: " + fField.getText());
-						if (fField.getText() == "0" || fField.getText() == "1")
-							setVisible(false);
-						else System.err.println("invalid fixed?");*/
 					}
 				}
 				);
@@ -481,6 +471,13 @@ public class GUI extends JFrame {
 	}
 
 	private class ReviewTable extends DefaultTableModel {
+		public boolean isCellEditable(int row, int col) {
+			return (col == 6 || col == 5); //only isDone and duration editable
+		}
+		public void setValueAt(Object value, int row, int col) {
+			if (col == 6 || col == 5) updateReview((int)reviewModel.getValueAt(row, 0), col, value); 
+		}
+		
 		public void removeRows(int[] rows) 
 		{
 			for (int i = 0; i < rows.length; i++) removeRow(rows[i]);
@@ -543,6 +540,12 @@ public class GUI extends JFrame {
 		return;
 	}
 
+	private void updateReview(int id, int col, Object value) {
+		if (col == 6)
+			runSQL("update " + reviewTableName + " set isDone = " + value + " where id = " + id, true);
+		else
+			runSQL("update " + reviewTableName + " set hr = " + value + " where id = " + id, true);
+	}
 	private void updateWork(int id, int col, Object value) {
 		switch(col) {
 		case 1: 
@@ -577,15 +580,14 @@ public class GUI extends JFrame {
 		GridBagConstraints c = new GridBagConstraints();
 		show.setLayout(new GridBagLayout());
 
-		home.add(show);	//checks[i][2] = list of checkboxes that match assign[day][i], each checkbox + mysql id
-		//assign[7][n][2] = for each day, assigned some n work, each work = int (mysql id) & double (duration)
-		class checkHandler implements ItemListener { 
+		home.add(show);	
+		class checkWorkHandler implements ItemListener { 
 			public void itemStateChanged(ItemEvent event) { 
-				for (int i = 0; i < checks.size(); ) {
-					if (checks.get(i).getKey().isSelected()) {
-						int id = checks.get(i).getValue(); //mysql id of the checked box
-						double durDone = assign.get(index).get(i).getValue();
-						hrsOnHwToday += durDone; //+= assigned duration for that entry = assign[day][i][1]
+				for (int i = 0; i < workChecks.size(); ) {
+					if (workChecks.get(i).getKey().isSelected()) {
+						int id = workChecks.get(i).getValue(); //mysql id of the checked box
+						double durDone = assignWork.get(index).get(i).getValue();
+						hrsOnHwToday += durDone; //+= assigned duration for that entry = assignWork[day][i][1]
 						msg.setText(String.valueOf(hrsOnHwToday));
 
 						runSQL("select * from " + tableName + " where id = " + id, false);
@@ -597,9 +599,9 @@ public class GUI extends JFrame {
 							}
 						} catch (SQLException e) {e.printStackTrace();}
 
-						assign.get(drop.getSelectedIndex()).remove(checks.get(i).getValue()); //unassign checked item
-						show.remove(checks.get(i).getKey());
-						checks.remove(i);
+						assignWork.get(drop.getSelectedIndex()).remove(workChecks.get(i).getValue()); //unassign checked item
+						show.remove(workChecks.get(i).getKey());
+						workChecks.remove(i);
 						revalidate(); //to refresh removal
 					}
 					else i++;
@@ -607,31 +609,77 @@ public class GUI extends JFrame {
 				workModel.loadTable();
 			}
 		}
+		
+		class checkReviewHandler implements ItemListener { 
+			public void itemStateChanged(ItemEvent event) { 
+				for (int i = 0; i < reviewChecks.size(); ) {
+					if (reviewChecks.get(i).getKey().isSelected()) {
+						int id = reviewChecks.get(i).getValue(); //mysql id of the checked box
+						double durDone = assignReview.get(index).get(i).getValue();
+						hrsOnHwToday += durDone; //+= assigned duration for that entry = assignWork[day][i][1]
+						msg.setText(String.valueOf(hrsOnHwToday));
+
+						runSQL("select * from " + reviewTableName + " where id = " + id, false);
+						try {
+							if (rs.next()) {
+								double durLeft = rs.getDouble("hr");
+								if (durLeft - durDone <= 0) removeWork(id);
+								else updateReview(id, 2, durLeft - durDone); //col 3 is hr
+							}
+						} catch (SQLException e) {e.printStackTrace();}
+
+						assignReview.get(drop.getSelectedIndex()).remove(reviewChecks.get(i).getValue()); //unassign checked item
+						show.remove(reviewChecks.get(i).getKey());
+						reviewChecks.remove(i);
+						revalidate(); //to refresh removal
+					}
+					else i++;
+				}
+				reviewModel.loadTable();
+			}
+		}
 
 		c.fill = GridBagConstraints.HORIZONTAL;    //fill entire cell with text to center
 		c.gridwidth = 4; c.gridx = 0; c.gridy = 0;   //coords + width of msg element
-		checks = new ArrayList<SimpleEntry<JCheckBox, Integer>>(); //handler needs to check if is ReviewEntry, so also store int (index to assign)
-		checkHandler handler = new checkHandler();
-		for (int i = 0; i < assign.get(index).size(); i++) {
-			runSQL("select * from " + tableName + " where id = " + assign.get(index).get(i).getKey() + ";", false);
+		workChecks = new ArrayList<SimpleEntry<JCheckBox, Integer>>(); //handler needs to check if is ReviewEntry, so also store int (index to assignWork)
+		reviewChecks = new ArrayList<SimpleEntry<JCheckBox, Integer>>(); //handler needs to check if is ReviewEntry, so also store int (index to assignWork)
+		checkWorkHandler workHandler = new checkWorkHandler();
+		for (int i = 0; i < assignWork.get(index).size(); i++) {
+			runSQL("select * from " + tableName + " where id = " + assignWork.get(index).get(i).getKey() + ";", false);
 			Entry temp = null;
 			try {
 				if (rs.next()) {
 					LocalDate dueDate = rs.getDate("deadline").toLocalDate();
 					temp = new Entry(rs.getInt("id"), rs.getString("name"), dueDate, rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
 					JCheckBox b = new JCheckBox(temp.name + ",  " + temp.hr + "h");
-					SimpleEntry<JCheckBox, Integer> a = new SimpleEntry<JCheckBox, Integer>(b, assign.get(index).get(i).getKey());
-					checks.add(a);
-					checks.get(checks.size()-1).getKey().setToolTipText("due " + formatter.format(temp.deadline));
-					//System.out.println(":(" + checks.get(checks.size()-1).getKey().getText() + " " + checks.get(checks.size()-1).getValue());
+					SimpleEntry<JCheckBox, Integer> a = new SimpleEntry<JCheckBox, Integer>(b, assignWork.get(index).get(i).getKey());
+					workChecks.add(a);
+					workChecks.get(workChecks.size()-1).getKey().setToolTipText("due " + formatter.format(temp.deadline));
+					//System.out.println(":(" + workChecks.get(workChecks.size()-1).getKey().getText() + " " + workChecks.get(workChecks.size()-1).getValue());
 
-					checks.get(checks.size()-1).getKey().addItemListener(handler);
-					show.add(checks.get(checks.size()-1).getKey(), c);
+					workChecks.get(workChecks.size()-1).getKey().addItemListener(workHandler);
+					show.add(workChecks.get(workChecks.size()-1).getKey(), c);
 					c.gridy++;
 				}
 			} catch (SQLException e) {e.printStackTrace();}
+		}
+		checkReviewHandler reviewHandler = new checkReviewHandler();
+		for (int i = 0; i < assignReview.get(index).size(); i++) {
+			runSQL("select * from " + reviewTableName + " where id = " + assignReview.get(index).get(i).getKey() + ";", false);
+			try {
+				if (rs.next()) {
+					LocalDate dueDate = rs.getDate("deadline").toLocalDate();
+					JCheckBox b = new JCheckBox(rs.getString("classID") + rs.getString("lectID") + ",  " + rs.getDouble("hr") + "h");
+					SimpleEntry<JCheckBox, Integer> a = new SimpleEntry<JCheckBox, Integer>(b, assignReview.get(index).get(i).getKey());
+					reviewChecks.add(a);
+					reviewChecks.get(reviewChecks.size()-1).getKey().setToolTipText("due " + formatter.format(rs.getDate("deadline").toLocalDate()));
+					//System.out.println(":(" + reviewChecks.get(reviewChecks.size()-1).getKey().getText() + " " + reviewChecks.get(workChecks.size()-1).getValue());
 
-
+					reviewChecks.get(reviewChecks.size()-1).getKey().addItemListener(reviewHandler);
+					show.add(reviewChecks.get(reviewChecks.size()-1).getKey(), c);
+					c.gridy++;
+				}
+			} catch (SQLException e) {e.printStackTrace();}
 		}
 
 		stats = new JLabel(hrsLeft.get(index) + "/" + (onBreak? breakBudget.get(index) : budget.get(index)) + "h free"); 
@@ -684,14 +732,14 @@ public class GUI extends JFrame {
 		if (onBreak) {
 			for (int i = 0; i < 7; i++)
 			{
-				System.out.print(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + " and # assigned: " + assign.get(i).size() + "\n\t" );
-				for (int j = 0; j < assign.get(i).size(); j++) {
-					System.out.println(assign.get(i).get(j).getKey() + " of len " + assign.get(i).get(j).getValue());
-					runSQL("select * from " + tableName + " where id = " + assign.get(i).get(j).getKey() + ";", false);
+				System.out.print(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + " and # assigned: " + assignWork.get(i).size() + "\n\t" );
+				for (int j = 0; j < assignWork.get(i).size(); j++) {
+					System.out.println(assignWork.get(i).get(j).getKey() + " of len " + assignWork.get(i).get(j).getValue());
+					runSQL("select * from " + tableName + " where id = " + assignWork.get(i).get(j).getKey() + ";", false);
 
 					try {
 						if (rs.next())
-							System.out.printf("%s\t%s\t%s\t%s/%s\t%s\t%s\n",rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), assign.get(i).get(j).getValue(),rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
+							System.out.printf("%s\t%s\t%s\t%s/%s\t%s\t%s\n",rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), assignWork.get(i).get(j).getValue(),rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
 					} catch (SQLException e) {e.printStackTrace();}
 				}
 				System.out.print("\n\t" + hrsLeft.get(i) + "h out of " + breakBudget.get(i) + "h free\n\n");
@@ -700,14 +748,14 @@ public class GUI extends JFrame {
 		else {
 			for (int i = 0; i < 7; i++)
 			{
-				System.out.print(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + " and # assigned: " + assign.get(i).size() + "\n\t" );
-				for (int j = 0; j < assign.get(i).size(); j++) {
-					System.out.println(assign.get(i).get(j).getKey() + " of len " + assign.get(i).get(j).getValue());
-					runSQL("select * from " + tableName + " where id = " + assign.get(i).get(j).getKey() + ";", false);
+				System.out.print(formatter.format(week.get(i)) + ":" + week.get(i).getDayOfWeek() + " and # assigned: " + assignWork.get(i).size() + "\n\t" );
+				for (int j = 0; j < assignWork.get(i).size(); j++) {
+					System.out.println(assignWork.get(i).get(j).getKey() + " of len " + assignWork.get(i).get(j).getValue());
+					runSQL("select * from " + tableName + " where id = " + assignWork.get(i).get(j).getKey() + ";", false);
 
 					try {
 						if (rs.next())
-							System.out.printf("%s\t%s\t%s\t%s/%s\t%s\t%s\n",rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), assign.get(i).get(j).getValue(),rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
+							System.out.printf("%s\t%s\t%s\t%s/%s\t%s\t%s\n",rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), assignWork.get(i).get(j).getValue(),rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
 					} catch (SQLException e) {e.printStackTrace();}
 				}
 				System.out.print("\n\t" + hrsLeft.get(i) + "h out of " + budget.get(i) + "h free\n\n");
@@ -721,12 +769,15 @@ public class GUI extends JFrame {
 		else hrsLeft = new ArrayList<Double>(budget);
 		hrsLeft.set(0, (hrsLeft.get(0) - hrsOnHwToday < 0)? 0 : hrsLeft.get(0) - hrsOnHwToday); 
 		//that was inserted after, from indexes oldWorkSize, oldWorkSize+1......work.size()-1
-		assign = new ArrayList<List<SimpleEntry<Integer, Double>>>(); //reset assign
+		assignWork = new ArrayList<List<SimpleEntry<Integer, Double>>>(); //reset assignWork
+		assignReview = new ArrayList<List<SimpleEntry<Integer, Double>>>(); //reset assignWork
 
 		for (int i = 0; i < 7; i++)
 		{
 			ArrayList<SimpleEntry<Integer,Double>> temp = new ArrayList<SimpleEntry<Integer,Double>>();
-			assign.add(temp);
+			ArrayList<SimpleEntry<Integer,Double>> temp2 = new ArrayList<SimpleEntry<Integer,Double>>();
+			assignWork.add(temp);
+			assignReview.add(temp2);
 		}
 
 		runSQL("select * from " + tableName + " order by fixed desc, deadline, diff desc", false);
@@ -750,24 +801,41 @@ public class GUI extends JFrame {
 			assignEntry(reviewToDo.get(i), true);
 		}*/
 
+		runSQL("select * from " + reviewTableName + " order by deadline", false);
+
+		try {
+			while (rs.next() && (LocalDate.parse(rs.getString("lecture")).isBefore(today) || LocalDate.parse(rs.getString("lecture")).isEqual(today))) {
+				if (rs.getBoolean("isDone") == true) continue;
+				LocalDate dueDate = rs.getDate("deadline").toLocalDate();
+				Entry temp = new Entry(rs.getInt("id"), rs.getString("classID") + " " + rs.getString("lectID"), LocalDate.parse(rs.getString("deadline")), rs.getDouble("hr"), 1, false);
+
+				int id = rs.getInt("id");
+				
+				System.out.println("assignEntry(" + id + ", t);");
+				assignEntry(temp, true);
+			}
+		} catch (SQLException e) {e.printStackTrace();}
+
 		printAssigned();
 	}
 
 	private void assignEntry(Entry curr, boolean isReview) { 
+		List<SimpleEntry<Integer, Integer>> report = new LinkedList<SimpleEntry<Integer, Integer>>(); //list of all assign coords 
 		int n = (int) ChronoUnit.DAYS.between(today, curr.deadline);
 		if (!(n >= 0 && n < 7)) return;
-		if (n<=0 && isReview) n = 8; //deadline passed, assign review to any day this week
+		if (n<=0 && isReview) n = 8; //deadline passed, assignWork review to any day this week
 
-		if (!isReview && curr.isFixed) 
+		if (curr.isFixed) 
 		{
-			assign.get((int) n).add(new SimpleEntry<Integer, Double>(curr.id, curr.hr)); //id of mysql entry assigned to date n's list
+			assignWork.get((int) n).add(new SimpleEntry<Integer, Double>(curr.id, curr.hr)); //id of mysql entry assigned to date n's list
+			report.add(new SimpleEntry<Integer,Integer>(n, assignWork.size()-1));
 			hrsLeft.set((int) n, hrsLeft.get((int) n) - curr.hr);
 		}
 		else {
 			if (n==0) n++;
 			int idealN = -1;
 
-			for (int j = 0; j < n-1; j++) //assign today? tmrw? day after? 
+			for (int j = 0; j < n-1; j++) //assignWork today? tmrw? day after? 
 			{
 				if (hrsLeft.get(j) - curr.hr >= 0)
 				{
@@ -780,7 +848,7 @@ public class GUI extends JFrame {
 				}
 			}
 			if (idealN == -1) //all dates before deadline no time even without leet+play
-			{ //forced to assign assign the day of deadline
+			{ //forced to assignWork assignWork the day of deadline
 
 				double remainingUnassigned = curr.hr;
 				if (hrsLeft.get((int) n-1) - curr.hr < 0) //if need to split bc deadline also not enough time
@@ -796,7 +864,7 @@ public class GUI extends JFrame {
 
 					if (sumAsIdeal >= curr.hr) { //best split case scenario, only take, at max, sweet free time out of each day
 						System.out.println("best case!");
-						for (int j = 0; j < n-1 && doCont; j++) //assign today? tmrw? day after? 
+						for (int j = 0; j < n-1 && doCont; j++) //assignWork today? tmrw? day after? 
 						{
 							System.out.println("trying day " + j);
 							double extraTime = hrsLeft.get(j) - Ideal(week.get(j));
@@ -804,19 +872,31 @@ public class GUI extends JFrame {
 							{
 								if (remainingUnassigned <= extraTime) { //doneReviews! all parts fitted
 									doCont = false;
-									assign.get(j).add(new SimpleEntry<Integer, Double> (curr.id, remainingUnassigned)); //direct assign to day j
+									if (isReview)
+										assignReview.get(j).add(new SimpleEntry<Integer, Double> (curr.id, remainingUnassigned)); //direct assignWork to day j
+									else
+										assignWork.get(j).add(new SimpleEntry<Integer, Double> (curr.id, remainingUnassigned)); //direct assignWork to day j
+									report.add(new SimpleEntry<Integer,Integer>(j, (isReview)? assignReview.size()-1 : assignWork.size()-1));
 									hrsLeft.set(j, hrsLeft.get(j) - remainingUnassigned); //update hours of day j
 								}
 								else { //gotta do more splitting, take entire extraTime
-									assign.get(j).add(new SimpleEntry<Integer, Double>(curr.id, extraTime));
+									if (isReview)
+										assignReview.get(j).add(new SimpleEntry<Integer, Double>(curr.id, extraTime));
+									else
+										assignWork.get(j).add(new SimpleEntry<Integer, Double>(curr.id, extraTime));
+									report.add(new SimpleEntry<Integer,Integer>(j, (isReview)? assignReview.size()-1 : assignWork.size()-1));
 									remainingUnassigned -= extraTime;
 									hrsLeft.set(j, (double) Ideal(week.get(j))); //which eats up all of day j's bonus hrs left.
 								}
 							}
 						}
-						if (doCont) //still need to assign remaining portion, last resort is to deadline
+						if (doCont) //still need to assignWork remaining portion, last resort is to deadline
 						{
-							assign.get((int) n-1).add(new SimpleEntry<Integer, Double>(curr.id, remainingUnassigned)); //index of remaining portion assigned to date n's list
+							if (isReview)
+								assignReview.get((int) n-1).add(new SimpleEntry<Integer, Double>(curr.id, remainingUnassigned)); //index of remaining portion assigned to date n's list
+							else
+								assignWork.get((int) n-1).add(new SimpleEntry<Integer, Double>(curr.id, remainingUnassigned)); //index of remaining portion assigned to date n's list
+							report.add(new SimpleEntry<Integer,Integer>(n-1, (isReview)? assignReview.size()-1 : assignWork.size()-1));
 							hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - remainingUnassigned); //subtract remain portion time from deadline hrsleft
 						}
 					}
@@ -824,18 +904,26 @@ public class GUI extends JFrame {
 						System.out.println("unfortunate split case");
 						double takenLPTime = 0; //LP = leet + play time
 						double needLPTTake = curr.hr - sumAsIdeal; //how much leet+play time must be taken total from day 0 to day b4 deadline
-						for (int j = 0; j < n-1 && doCont; j++) //assign today? tmrw? day after? 
+						for (int j = 0; j < n-1 && doCont; j++) //assignWork today? tmrw? day after? 
 						{
 							if (takenLPTime < needLPTTake) { //need to take all of today's time. 
 								if (hrsLeft.get(j) > 0) //has some time to squeeze this task
 								{
 									if (remainingUnassigned <= hrsLeft.get(j)) { //all parts fitted
 										doCont = false;
-										assign.get(j).add(new SimpleEntry<Integer, Double>(curr.id, remainingUnassigned)); //direct assign to day j
+										if(isReview)
+											assignReview.get(j).add(new SimpleEntry<Integer, Double>(curr.id, remainingUnassigned)); //direct assignWork to day j
+										else
+											assignWork.get(j).add(new SimpleEntry<Integer, Double>(curr.id, remainingUnassigned)); //direct assignWork to day j
+										report.add(new SimpleEntry<Integer,Integer>(j, (isReview)? assignReview.size()-1 : assignWork.size()-1));
 										hrsLeft.set(j, hrsLeft.get(j) - remainingUnassigned); //update hours of day j
 									}
 									else { //gotta do more splitting, take entire day's time
-										assign.get(j).add(new SimpleEntry<Integer, Double>(curr.id, hrsLeft.get(j)));
+										if(isReview)
+											assignReview.get(j).add(new SimpleEntry<Integer, Double>(curr.id, hrsLeft.get(j)));
+										else
+											assignWork.get(j).add(new SimpleEntry<Integer, Double>(curr.id, hrsLeft.get(j)));
+										report.add(new SimpleEntry<Integer,Integer>(j, (isReview)? assignReview.size()-1 : assignWork.size()-1));
 										remainingUnassigned -= hrsLeft.get(j);
 										hrsLeft.set(j, 0.0); //which eats up all of day j's hrs left.
 										takenLPTime += Ideal(week.get(j)); //now i used up this much of day j's ideal time, count in total
@@ -848,34 +936,71 @@ public class GUI extends JFrame {
 								{
 									if (remainingUnassigned <= extraTime) { //all parts fitted
 										doCont = false;
-										assign.get(j).add(new SimpleEntry<Integer,Double>(curr.id, remainingUnassigned)); //direct assign to day j
+										if(isReview)
+											assignReview.get(j).add(new SimpleEntry<Integer,Double>(curr.id, remainingUnassigned)); //direct assignWork to day j
+										else
+											assignWork.get(j).add(new SimpleEntry<Integer,Double>(curr.id, remainingUnassigned)); //direct assignWork to day j
+										report.add(new SimpleEntry<Integer,Integer>(j, (isReview)? assignReview.size()-1 : assignWork.size()-1));
 										hrsLeft.set(j, extraTime - remainingUnassigned); //update hours of day j
 									}
 									else { //gotta do more splitting. Greedy, take entire bonus time of day j
-										assign.get(j).add(new SimpleEntry<Integer,Double>(curr.id, extraTime));
+										if(isReview)
+											assignReview.get(j).add(new SimpleEntry<Integer,Double>(curr.id, extraTime));
+										else
+											assignWork.get(j).add(new SimpleEntry<Integer,Double>(curr.id, extraTime));
+										report.add(new SimpleEntry<Integer,Integer>(j, (isReview)? assignReview.size()-1 : assignWork.size()-1));
 										remainingUnassigned -= extraTime; //update remaining portion of task
 										hrsLeft.set(j, (double) Ideal(week.get(j))); //which eats up all of day j's hrs left.
 									}
 								}
 							}
 						}
-						if (doCont) //still need to assign remaining portion, last resort is to deadline
+						if (doCont) //still need to assignWork remaining portion, last resort is to deadline
 						{
-							assign.get((int) n-1).add(new SimpleEntry<Integer, Double>(curr.id, remainingUnassigned)); //index of remaining portion assigned to date n's list
+							if (isReview)
+								assignReview.get((int) n-1).add(new SimpleEntry<Integer, Double>(curr.id, remainingUnassigned)); //index of remaining portion assigned to date n's list
+							else
+								assignWork.get((int) n-1).add(new SimpleEntry<Integer, Double>(curr.id, remainingUnassigned)); //index of remaining portion assigned to date n's list
+							report.add(new SimpleEntry<Integer,Integer>(n-1, (isReview)? assignReview.size()-1 : assignWork.size()-1));
 							hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - remainingUnassigned); //subtract remain portion time from deadline hrsleft
 						}
 					}
 				}
-				else { //deadline only day enough time for entire assignment, so assign to deadline
-					assign.get((int) n-1).add(new SimpleEntry<Integer, Double>(curr.id, curr.hr)); //index of remaining portion assigned to date n's list
+				else { //deadline only day enough time for entire assignment, so assignWork to deadline
+					if (isReview)
+						assignReview.get((int) n-1).add(new SimpleEntry<Integer, Double>(curr.id, curr.hr)); //index of remaining portion assigned to date n's list
+					else
+						assignWork.get((int) n-1).add(new SimpleEntry<Integer, Double>(curr.id, curr.hr)); //index of remaining portion assigned to date n's list
+					report.add(new SimpleEntry<Integer,Integer>(n-1, (isReview)? assignReview.size()-1 : assignWork.size()-1));
 					hrsLeft.set((int) n-1, hrsLeft.get((int) n-1) - curr.hr); //subtract remain portion time from deadline hrsleft
 				}
 			}
-			else //ideal fits perfectly, just assign it to ideal day.
+			else //ideal fits perfectly, just assignWork it to ideal day.
 			{
-				assign.get(idealN).add(new SimpleEntry<Integer, Double>(curr.id, curr.hr)); //index of work assigned to date idealN's list
+				if (isReview)
+					assignReview.get(idealN).add(new SimpleEntry<Integer, Double>(curr.id, curr.hr)); //index of work assigned to date idealN's list
+				else
+					assignWork.get(idealN).add(new SimpleEntry<Integer, Double>(curr.id, curr.hr)); //index of work assigned to date idealN's list
+				report.add(new SimpleEntry<Integer,Integer>(idealN, (isReview)? assignReview.size()-1 : assignWork.size()-1));
 				hrsLeft.set(idealN, hrsLeft.get(idealN) - curr.hr);
 			}
+		}
+		
+		for (int i = 0; i < report.size(); i++) {
+		
+			if (isReview) {
+				if (curr.id != assignReview.get(report.get(i).getKey()).get(report.get(i).getValue()).getKey())  {
+					System.out.println("WARNING");
+					System.exit(0);
+				}
+			}
+			else {
+				if (curr.id != assignWork.get(report.get(i).getKey()).get(report.get(i).getValue()).getKey())  {
+					System.out.println("WARNING");
+					System.exit(0);
+				}
+			}
+			System.err.println(report.get(i).getKey() + ":" + report.get(i).getValue());
 		}
 	}
 
@@ -1070,7 +1195,11 @@ public class GUI extends JFrame {
 			try {
 				st.executeUpdate(query);
 				System.out.println(query + " was successful");
-				if (loadTable) workModel.loadTable();
+				if (loadTable) {
+					workModel.loadTable();
+					reviewModel.loadTable();
+					editTasks = true; //mark for rerun scheduler once switch to home tab
+				}
 				return 0;
 			} catch (SQLException e) {e.printStackTrace(); System.err.println(query + " failed"); return -1;}
 		}
