@@ -1,4 +1,5 @@
 package try1;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -11,6 +12,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.sql.Connection;
@@ -35,7 +37,6 @@ import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
@@ -82,7 +83,7 @@ public class GUI extends JFrame {
 	private String reviewTableName = "review";
 	private WorkTable workModel;
 	private ReviewTable reviewModel;
-	private JPanel newEntry; private JTextField nameField, hrField, deadlineField, diffField, hrsSpentField; 
+	private boolean createPopupOpen = false;
 	public GUI () {
 		super("TimeBudget");
 		pack();
@@ -107,7 +108,7 @@ public class GUI extends JFrame {
 		add(home);
 		home.setLayout(new FlowLayout());
 		tasks = new JPanel();
-		
+
 		settings = new JPanel();
 
 		tabPane = new JTabbedPane();
@@ -226,11 +227,131 @@ public class GUI extends JFrame {
 				}
 				);
 		add = new JButton("+");
+
+		//new entry window
+		JFrame newEntry = new JFrame(); 
+		newEntry.setLayout(new GridBagLayout());
+		newEntry.setPreferredSize(new Dimension(400,300));
+		JTextField nField = new JTextField();
+		JTextField deField = new JTextField();
+		JTextField duField = new JTextField();
+		JTextField diField = new JTextField();
+		JTextField fField = new JTextField();
+		JButton k = new JButton("Create");
+		nField.setText("Name");
+		deField.setText("Deadline");
+		duField.setText("Duration");
+		diField.setText("Difficulty");
+		fField.setText("Fixed?");
+		
+
+		k.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				if (nField.getText().indexOf("\"") != -1)
+				{
+					System.err.println("invalid name");
+					return;
+				}
+				
+				if (!(fField.getText().equals("0") || fField.getText().equals("1"))) {
+					System.err.println("invalid boolean");
+					return;
+				}
+				try {
+					System.out.println(nField.getText());
+					System.out.println(LocalDate.parse(deField.getText()));
+					System.out.println(Double.valueOf(duField.getText()));
+					System.out.println(Integer.valueOf(diField.getText()));
+					System.out.println(fField.getText());
+					runSQL(String.format("insert into %s (name, deadline, hr, diff, fixed) values (\"%s\",\'%s\',%s,%s,%s);", tableName, nField.getText(), deField.getText(), duField.getText(), diField.getText(), fField.getText()), true);
+					nField.setText("Name");
+					deField.setText("Deadline");
+					duField.setText("Duration");
+					diField.setText("Difficulty");
+					fField.setText("Fixed?");
+				} catch(Exception ed) {
+					ed.printStackTrace(System.out);
+					System.err.println("invalid date, please try again"); return;}
+
+				createPopupOpen = false;
+				newEntry.setVisible(false);
+				System.out.println("i am ded");
+			}
+
+		}
+				);
+
+		GridBagConstraints s = new GridBagConstraints();
+		s.fill = GridBagConstraints.HORIZONTAL;
+		s.gridx = 0; s.gridy = 0; s.gridwidth = 3;
+		newEntry.add(nField, s);
+		s.gridx = 0; s.gridy = 1; s.gridwidth = 3;
+		newEntry.add(deField, s);
+		s.gridx = 0; s.gridy = 2; s.gridwidth = 1;
+		newEntry.add(duField, s);
+		s.gridx = 1; s.gridy = 2; s.gridwidth = 1;
+		newEntry.add(diField, s);
+		s.gridx = 2; s.gridy = 2; s.gridwidth = 1;
+		newEntry.add(fField, s);
+		s.fill = GridBagConstraints.NONE;
+		s.gridx = 1; s.gridy = 3; s.gridwidth = 1;
+		newEntry.add(k, s);
+		newEntry.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		newEntry.addWindowListener( new WindowListener() {
+
+			public void windowOpened(WindowEvent e) {
+				createPopupOpen = true;
+				System.out.println("i am born");
+			}
+
+			public void windowClosing(WindowEvent e) {
+				createPopupOpen = false;
+				System.out.println("i am ded");
+				newEntry.setVisible(false);
+			}
+
+			public void windowClosed(WindowEvent e) {}
+
+			public void windowIconified(WindowEvent e) {}
+
+			public void windowDeiconified(WindowEvent e) {}
+
+			public void windowActivated(WindowEvent e) {}
+
+			public void windowDeactivated(WindowEvent e) {}
+
+		}
+
+				);
+
+		add.addActionListener(
+				new ActionListener() {
+					public void actionPerformed(ActionEvent event) {
+						if (!createPopupOpen) {
+							createPopupOpen = true;
+							newEntry.setVisible(true);
+							newEntry.pack();
+							newEntry.setLocationRelativeTo(null);
+						}
+
+						/*
+						System.out.println("name: " + nField.getText());
+						System.out.println("deadline: " + deField.getText());
+						System.out.println("duration: " + duField.getText());
+						System.out.println("difficulty: " + diField.getText());
+						System.out.println("fixed?: " + fField.getText());
+						if (fField.getText() == "0" || fField.getText() == "1")
+							setVisible(false);
+						else System.err.println("invalid fixed?");*/
+					}
+				}
+				);
+
 		taskToolBar.add(delete);
 		taskToolBar.add(add);
 
 		tasks.setLayout(new GridBagLayout());
-		
+
 		//workTable:
 		gbc.gridx = 0; gbc.gridy = 1;
 		workModel = new WorkTable();
@@ -264,18 +385,7 @@ public class GUI extends JFrame {
 		System.out.println("\nNow Printing Work[]: ");
 		printWork();
 
-		//new entry window
-		newEntry = new JPanel(); 
-		nameField = new JTextField("Enter name");
-		diffField = new JTextField("Enter diff");
-		newEntry.add(nameField);
-		newEntry.add(diffField);
-		int result = JOptionPane.showConfirmDialog(null, newEntry, 
-				"Please Enter X and Y Values", JOptionPane.OK_CANCEL_OPTION);
-		if (result == JOptionPane.OK_OPTION) {
-			System.out.println("x value: " + nameField.getText());
-			System.out.println("y value: " + diffField.getText());
-		}
+
 	}
 
 	public class WorkTableHeaderMouseListener extends MouseAdapter {
@@ -436,10 +546,10 @@ public class GUI extends JFrame {
 	private void updateWork(int id, int col, Object value) {
 		switch(col) {
 		case 1: 
-			runSQL("update " + tableName + " set name = \'" + value + "\' where id = " + id, true);
+			runSQL("update " + tableName + " set name = \"" + value + "\" where id = " + id, true);
 			break;
 		case 2: 
-			runSQL("update " + tableName + " set deadline = \'" + value + "\' where id = " + id, true);
+			runSQL("update " + tableName + " set deadline = \"" + value + "\" where id = " + id, true);
 			break;
 		case 3: 
 			runSQL("update " + tableName + " set hr = " + value + " where id = " + id, true);
