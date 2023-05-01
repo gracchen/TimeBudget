@@ -84,6 +84,10 @@ public class GUI extends JFrame {
 	private WorkTable workModel;
 	private ReviewTable reviewModel;
 	private boolean createPopupOpen = false;
+	private int workTableSortedByCol = 0;
+	private int reviewTableSortedByCol = 0;
+
+	List<String> classNames = new LinkedList<String>();
 	public GUI () {
 		super("TimeBudget");
 		pack();
@@ -199,7 +203,7 @@ public class GUI extends JFrame {
 		//DROPDOWN GUI:
 		drop = new JComboBox<String>(dateChoices.toArray(new String[dateChoices.size()])); //param = array of options
 		home.add(drop);
-		showSelected(0); //default show today
+		
 		drop.addItemListener(
 				new ItemListener() {
 					public void itemStateChanged(ItemEvent event) {
@@ -347,7 +351,7 @@ public class GUI extends JFrame {
 		workModel = new WorkTable();
 		workTable = new JTable(workModel);
 		workModel.loadTable();
-
+		showSelected(0); //default show today
 		workTable.getTableHeader().setReorderingAllowed(false);
 
 		tasks.add(new JScrollPane(workTable), gbc);
@@ -408,16 +412,10 @@ public class GUI extends JFrame {
 				removeRow(rows[i]);
 		}
 		public void loadTable() {
-			setRowCount(0);
-			runSQL("select * from " + tableName + ";", false);
-			try {
-				while(rs.next())
-					workModel.addRow(new Object[]{rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed")});
-				//System.out.printf("%s:%s:%s\n", rs.getString("id"), rs.getString("name"), rs.getString("fixed"));
-				System.out.println("successfully imported mySQL workTable to JTable");
-			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
+			loadTable(workTableSortedByCol);
 		}
 		public void loadTable(int sortByCol) {
+			workTableSortedByCol = sortByCol;
 			setRowCount(0);
 			runSQL("select * from " + tableName + " order by " + workColNames[sortByCol] + ";", false);
 			try {
@@ -472,10 +470,10 @@ public class GUI extends JFrame {
 
 	private class ReviewTable extends DefaultTableModel {
 		public boolean isCellEditable(int row, int col) {
-			return (col == 6 || col == 5); //only isDone and duration editable
+			return (col == 7 || col == 6); //only isDone and duration editable
 		}
 		public void setValueAt(Object value, int row, int col) {
-			if (col == 6 || col == 5) updateReview((int)reviewModel.getValueAt(row, 0), col, value); 
+			if (col == 7 || col == 6) updateReview((int)reviewModel.getValueAt(row, 0), col, value); 
 		}
 		
 		public void removeRows(int[] rows) 
@@ -483,24 +481,18 @@ public class GUI extends JFrame {
 			for (int i = 0; i < rows.length; i++) removeRow(rows[i]);
 		}
 		public void loadTable(int sortByCol) {
+			reviewTableSortedByCol = sortByCol;
 			runSQL("select * from " + reviewTableName + " order by " + reviewColNames[sortByCol] + ";", false);
 			setRowCount(0);
 			try {
 				while(rs.next())
-					reviewModel.addRow(new Object[]{rs.getInt("id"),rs.getInt("classID"), rs.getDouble("lectID"), rs.getDate("lecture"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getBoolean("isDone")});
+					reviewModel.addRow(new Object[]{rs.getInt("id"),rs.getInt("classID"), classNames.get(rs.getInt("classID")), rs.getDouble("lectID"), rs.getDate("lecture"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getBoolean("isDone")});
 				//System.out.printf("%s:%s:%s\n", rs.getString("id"), rs.getString("name"), rs.getString("fixed"));
 				System.out.println("successfully imported mySQL review workTable to JTable");
 			} catch (SQLException e) {e.printStackTrace(); System.err.println("load review workTable failed");}
 		}
 		public void loadTable() {
-			setRowCount(0);
-			runSQL("select * from " + reviewTableName + ";", false);
-			try {
-				while(rs.next())
-					reviewModel.addRow(new Object[]{rs.getInt("id"),rs.getInt("classID"), rs.getDouble("lectID"), rs.getDate("lecture"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getBoolean("isDone")});
-				//System.out.printf("%s:%s:%s\n", rs.getString("id"), rs.getString("name"), rs.getString("fixed"));
-				System.out.println("successfully imported mySQL review workTable to JTable");
-			} catch (SQLException e) {e.printStackTrace(); System.err.println("load review workTable failed");}
+			loadTable(reviewTableSortedByCol);
 		}
 
 		public Class<?> getColumnClass(int column) {
@@ -508,13 +500,15 @@ public class GUI extends JFrame {
 			case 0:	//id
 			case 1:	//classID
 				return Integer.class;
-			case 2:	//lectID
+			case 2: //className
+				return String.class;
+			case 3:	//lectID
 				return Double.class;
-			case 3:	//lecture
-				return Date.class;
-			case 4:	//deadline
-				return Date.class;
-			case 5:	//hr
+			case 4:	//lecture
+				return LocalDate.class;
+			case 5:	//deadline
+				return LocalDate.class;
+			case 6:	//hr
 				return Double.class;
 			default://isDone
 				return Boolean.class;
@@ -525,26 +519,33 @@ public class GUI extends JFrame {
 			switch(col) {
 			case 0: return "id";
 			case 1: return "classID";
-			case 2: return "lectID";
-			case 3: return "lecture";
-			case 4: return "deadline";
-			case 5: return "hr";
+			case 2: return "className";
+			case 3: return "lectID";
+			case 4: return "lecture";
+			case 5: return "deadline";
+			case 6: return "hr";
 			default: return "isDone";
 			}
 		}
-		public int getColumnCount() { return 7; }
+		public int getColumnCount() { return 8; }
 	}
 
 	private void removeWork(int id) {
 		runSQL("delete from " + tableName + " where id = " + id, true);
 		return;
 	}
+	
+	private void removeReview(int id) {
+		runSQL("update " + reviewTableName + " set isDone = 1 where id = " + id, true);
+		return;
+	}
 
 	private void updateReview(int id, int col, Object value) {
-		if (col == 6)
+		if (col == 7)
 			runSQL("update " + reviewTableName + " set isDone = " + value + " where id = " + id, true);
 		else
 			runSQL("update " + reviewTableName + " set hr = " + value + " where id = " + id, true);
+		editTasks=true;
 	}
 	private void updateWork(int id, int col, Object value) {
 		switch(col) {
@@ -564,7 +565,7 @@ public class GUI extends JFrame {
 			runSQL("update " + tableName + " set fixed = " + value + " where id = " + id, true);
 			break;
 		}	
-		workScheduler();
+		editTasks=true;
 		return;
 	}
 
@@ -598,8 +599,9 @@ public class GUI extends JFrame {
 								else updateWork(id, 2, durLeft - durDone); //col 3 is hr
 							}
 						} catch (SQLException e) {e.printStackTrace();}
-
-						assignWork.get(drop.getSelectedIndex()).remove(workChecks.get(i).getValue()); //unassign checked item
+						
+						System.err.println("trying to remove "  + i);
+						assignWork.get(drop.getSelectedIndex()).remove(i); //unassign checked item
 						show.remove(workChecks.get(i).getKey());
 						workChecks.remove(i);
 						revalidate(); //to refresh removal
@@ -623,12 +625,13 @@ public class GUI extends JFrame {
 						try {
 							if (rs.next()) {
 								double durLeft = rs.getDouble("hr");
-								if (durLeft - durDone <= 0) removeWork(id);
+								if (durLeft - durDone <= 0) removeReview(id);
 								else updateReview(id, 2, durLeft - durDone); //col 3 is hr
 							}
 						} catch (SQLException e) {e.printStackTrace();}
 
-						assignReview.get(drop.getSelectedIndex()).remove(reviewChecks.get(i).getValue()); //unassign checked item
+						System.err.println("trying to remove "  + i);
+						assignReview.get(drop.getSelectedIndex()).remove(i); //unassign checked item
 						show.remove(reviewChecks.get(i).getKey());
 						reviewChecks.remove(i);
 						revalidate(); //to refresh removal
@@ -644,6 +647,7 @@ public class GUI extends JFrame {
 		workChecks = new ArrayList<SimpleEntry<JCheckBox, Integer>>(); //handler needs to check if is ReviewEntry, so also store int (index to assignWork)
 		reviewChecks = new ArrayList<SimpleEntry<JCheckBox, Integer>>(); //handler needs to check if is ReviewEntry, so also store int (index to assignWork)
 		checkWorkHandler workHandler = new checkWorkHandler();
+		checkReviewHandler reviewHandler = new checkReviewHandler();
 		for (int i = 0; i < assignWork.get(index).size(); i++) {
 			runSQL("select * from " + tableName + " where id = " + assignWork.get(index).get(i).getKey() + ";", false);
 			Entry temp = null;
@@ -660,28 +664,30 @@ public class GUI extends JFrame {
 					workChecks.get(workChecks.size()-1).getKey().addItemListener(workHandler);
 					show.add(workChecks.get(workChecks.size()-1).getKey(), c);
 					c.gridy++;
+					workModel.loadTable();
 				}
 			} catch (SQLException e) {e.printStackTrace();}
 		}
-		checkReviewHandler reviewHandler = new checkReviewHandler();
 		for (int i = 0; i < assignReview.get(index).size(); i++) {
 			runSQL("select * from " + reviewTableName + " where id = " + assignReview.get(index).get(i).getKey() + ";", false);
+			Entry temp = null;
 			try {
 				if (rs.next()) {
 					LocalDate dueDate = rs.getDate("deadline").toLocalDate();
-					JCheckBox b = new JCheckBox(rs.getString("classID") + rs.getString("lectID") + ",  " + rs.getDouble("hr") + "h");
+					temp = new Entry(rs.getInt("id"), classNames.get(rs.getInt("classID")) + " Lect " + rs.getString("lectID"), dueDate, rs.getDouble("hr"), 1, false);
+					JCheckBox b = new JCheckBox(temp.name + ",  " + temp.hr + "h");
 					SimpleEntry<JCheckBox, Integer> a = new SimpleEntry<JCheckBox, Integer>(b, assignReview.get(index).get(i).getKey());
 					reviewChecks.add(a);
-					reviewChecks.get(reviewChecks.size()-1).getKey().setToolTipText("due " + formatter.format(rs.getDate("deadline").toLocalDate()));
-					//System.out.println(":(" + reviewChecks.get(reviewChecks.size()-1).getKey().getText() + " " + reviewChecks.get(workChecks.size()-1).getValue());
+					reviewChecks.get(reviewChecks.size()-1).getKey().setToolTipText("due " + formatter.format(temp.deadline));
+					//System.out.println(":(" + workChecks.get(workChecks.size()-1).getKey().getText() + " " + workChecks.get(workChecks.size()-1).getValue());
 
 					reviewChecks.get(reviewChecks.size()-1).getKey().addItemListener(reviewHandler);
 					show.add(reviewChecks.get(reviewChecks.size()-1).getKey(), c);
 					c.gridy++;
+					reviewModel.loadTable();
 				}
 			} catch (SQLException e) {e.printStackTrace();}
 		}
-
 		stats = new JLabel(hrsLeft.get(index) + "/" + (onBreak? breakBudget.get(index) : budget.get(index)) + "h free"); 
 		show.add(stats, c);
 		if (hrsLeft.get(index) > 0)
@@ -809,9 +815,9 @@ public class GUI extends JFrame {
 				LocalDate dueDate = rs.getDate("deadline").toLocalDate();
 				Entry temp = new Entry(rs.getInt("id"), rs.getString("classID") + " " + rs.getString("lectID"), LocalDate.parse(rs.getString("deadline")), rs.getDouble("hr"), 1, false);
 
-				int id = rs.getInt("id");
 				
-				System.out.println("assignEntry(" + id + ", t);");
+				
+				
 				assignEntry(temp, true);
 			}
 		} catch (SQLException e) {e.printStackTrace();}
@@ -822,7 +828,11 @@ public class GUI extends JFrame {
 	private void assignEntry(Entry curr, boolean isReview) { 
 		List<SimpleEntry<Integer, Integer>> report = new LinkedList<SimpleEntry<Integer, Integer>>(); //list of all assign coords 
 		int n = (int) ChronoUnit.DAYS.between(today, curr.deadline);
-		if (!(n >= 0 && n < 7)) return;
+		System.out.printf("assignEntry(" + curr.id + ", %s);\n", (isReview? "t" : "s"));
+		if (!(n >= 0 && n < 7)) {
+			System.err.println("\tsorry, n not right range:" + n);
+			return;
+		}
 		if (n<=0 && isReview) n = 8; //deadline passed, assignWork review to any day this week
 
 		if (curr.isFixed) 
@@ -986,21 +996,24 @@ public class GUI extends JFrame {
 			}
 		}
 		
+		if (isReview) {System.out.println("review!");}
+		System.err.println("report.size = " + report.size());
 		for (int i = 0; i < report.size(); i++) {
-		
+			System.err.println("day "+ report.get(i).getKey());
 			if (isReview) {
-				if (curr.id != assignReview.get(report.get(i).getKey()).get(report.get(i).getValue()).getKey())  {
+				
+				/*if (curr.id != assignReview.get(report.get(i).getKey()).get(report.get(i).getValue()).getKey())  {
 					System.out.println("WARNING");
 					System.exit(0);
-				}
+				}*/
 			}
 			else {
-				if (curr.id != assignWork.get(report.get(i).getKey()).get(report.get(i).getValue()).getKey())  {
+				/*if (curr.id != assignWork.get(report.get(i).getKey()).get(report.get(i).getValue()).getKey())  {
 					System.out.println("WARNING");
 					System.exit(0);
-				}
+				}*/
 			}
-			System.err.println(report.get(i).getKey() + ":" + report.get(i).getValue());
+			//System.err.println(report.get(i).getKey() + ":" + report.get(i).getValue());
 		}
 	}
 
@@ -1118,7 +1131,7 @@ public class GUI extends JFrame {
 				if (!rs.next()) doGenerate = true; //empty
 			} catch (SQLException e) {e.printStackTrace();}
 		}
-		if (!doGenerate) return; //reviews already generated, do nothing
+		
 
 		Scanner getX = null;
 		try {
@@ -1127,6 +1140,16 @@ public class GUI extends JFrame {
 
 		if (getX != null)
 		{
+			if (!doGenerate) {
+				while(getX.hasNextLine())
+				{
+					String line = getX.nextLine();
+					String name = line.substring(1, line.indexOf("\"",1));
+					classNames.add(name);
+				}
+				return;
+			}
+			
 			int classIndex = 0;
 			while(getX.hasNextLine())
 			{
@@ -1134,7 +1157,8 @@ public class GUI extends JFrame {
 				String name = line.substring(1, line.indexOf("\"",1));
 				line = line.substring(line.indexOf("\"", 1)+2); //remove name portion
 				String temp1[] = line.split(",");
-
+				classNames.add(name);
+				
 				for (int i = 1; i < temp1.length; i++) 
 				{
 					//first class at this day of week: week1.plusDays(dayToIndex(initialDayOfWeek(temp[i])));
