@@ -1,22 +1,18 @@
 package try1;
-import java.awt.Dimension;
+import javafx.scene.control.CheckBox;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Point;
-import java.awt.event.ActionEvent;
+
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import java.awt.event.WindowListener;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -35,39 +31,54 @@ import java.util.Scanner;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.JTableHeader;
 
-public class GUI extends JFrame {
+import javafx.application.Application;
+import javafx.collections.FXCollections;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Pane;
+import javafx.stage.Stage;
+
+public class GUI extends Application {
 	private String[] workColNames = {"id", "name", "deadline", "hr", "diff", "fixed"};
 	private String[] reviewColNames = {"id", "classID", "lectID", "lecture", "deadline", "hr", "isDone"};
-	private JPanel home, tasks, settings;
+	//	private JPanel home, tasks, settings;
+	private FlowPane home;
 	private List<LocalDate> week;
 	private List<Double> breakBudget, budget, hrsLeft; //break vs non-break budget
 	private List<List<SimpleEntry<Integer, Double>>> assignWork; //id + length
 	private List<List<SimpleEntry<Integer, Double>>> assignReview; //id + length
-	private JTextField msg;
+	private TextField msg;
 	private static final long serialVersionUID = 1L;
 	private File dayOfWeekConstFile, dailyConstFile, reviewClassesFile;
 	private double consts[], daily;
 	private DateTimeFormatter formatter;
-	private JButton toggleBreak;
+	private Button toggleBreak;
 	private boolean onBreak;
 	private int weekDayIdeal = 1, weekEndIdeal = 6;
 	private List<String> dateChoices;
-	private JComboBox<String> drop;
-	private JPanel show;
-	private JLabel stats, leet, play;
-	private List<SimpleEntry<JCheckBox, Integer>> workChecks, reviewChecks;
+	private ComboBox<String> drop;
+	private GridPane show;
+	private Label stats;
+	Label play;
+	Label leet;
+	List<SimpleEntry<CheckBox, Integer>> workChecks;
+	private List<SimpleEntry<CheckBox, Integer>> reviewChecks;
 	private JTabbedPane tabPane;
 	private LocalDate week1 = LocalDate.of(2023, 4, 3); //spring quarter instruction starts April 3, this is dummy test var
 	private JTable workTable, reviewTable; 
@@ -88,16 +99,13 @@ public class GUI extends JFrame {
 	private int reviewTableSortedByCol = 0;
 
 	List<String> classNames = new LinkedList<String>();
-	public GUI () {
-		super("TimeBudget");
-		pack();
-		setLocationRelativeTo(null);
 
-		addWindowListener(new WindowAdapter() {
-			public void windowClosing(WindowEvent evt) {
-				System.exit(0);
-			}
-		});
+	public static void main(String[] args) {
+		launch(args);
+	}
+
+	public void start(Stage primaryStage) {
+
 
 		//Connection: 
 		try {
@@ -108,34 +116,34 @@ public class GUI extends JFrame {
 		} catch (ClassNotFoundException e1) {e1.printStackTrace();} catch (SQLException e1) {e1.printStackTrace();}
 
 		today = LocalDate.now();
-		home = new JPanel();
-		add(home);
-		home.setLayout(new FlowLayout());
-		tasks = new JPanel();
+		home = new FlowPane();
+		//		add(home);
+		//		home.setLayout(new FlowLayout());
+		//		tasks = new JPanel();
+		//
+		//		settings = new JPanel();
 
-		settings = new JPanel();
-
-		tabPane = new JTabbedPane();
-		tabPane.addTab("Home", home);
-		tabPane.addTab("Tasks", tasks);
-		tabPane.addTab("Settings", settings);
-		add(tabPane);
-		ChangeListener changeListener = new ChangeListener() {
-			@Override
-			public void stateChanged(ChangeEvent e) {
-
-				System.out.println("Tab changed to: " + tabPane.getSelectedIndex());
-				if (tabPane.getSelectedIndex() == 0) {
-					if (editTasks) { 
-						System.out.println("need to reschedule");
-						editTasks = false;
-						workScheduler(); //recalculate once detect edits made + switch back to home
-					}
-					showSelected(drop.getSelectedIndex()); //refresh
-				}
-			}
-		};
-		tabPane.addChangeListener(changeListener);
+		//		tabPane = new JTabbedPane();
+		//		tabPane.addTab("Home", home);
+		//		tabPane.addTab("Tasks", tasks);
+		//		tabPane.addTab("Settings", settings);
+		//		add(tabPane);
+		//		ChangeListener changeListener = new ChangeListener() {
+		//			@Override
+		//			public void stateChanged(ChangeEvent e) {
+		//
+		//				System.out.println("Tab changed to: " + tabPane.getSelectedIndex());
+		//				if (tabPane.getSelectedIndex() == 0) {
+		//					if (editTasks) { 
+		//						System.out.println("need to reschedule");
+		//						editTasks = false;
+		//						workScheduler(); //recalculate once detect edits made + switch back to home
+		//					}
+		//					showSelected(drop.getSelectedIndex()); //refresh
+		//				}
+		//			}
+		//		};
+		//		tabPane.addChangeListener(changeListener);
 
 		onBreak = false; //default break mode
 		formatter = DateTimeFormatter.ofPattern("M/d/yyyy");
@@ -171,214 +179,219 @@ public class GUI extends JFrame {
 		workScheduler();
 
 		//GUI PART!!!msg = new JLabel("hi");
-		msg = new JTextField();
-		home.add(msg);
-		msg.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent event) {
-				try {
-					hrsOnHwToday = Double.valueOf(event.getActionCommand());
-					workScheduler();
-					showSelected(drop.getSelectedIndex()); //refresh
-				} catch (Exception e) {System.out.println("invalid hrs spent today input");};
+		msg = new TextField();
+		home.getChildren().add(msg);
+
+		msg.setOnAction(event -> {
+			try {
+				hrsOnHwToday = Double.valueOf(msg.getText());
+				workScheduler();
+				showSelected(drop.getSelectionModel().getSelectedIndex()); // refresh
+			} catch (NumberFormatException e) {
+				System.out.println("Invalid hours spent today input");
 			}
 		});
 
-		toggleBreak = new JButton("off break");
-		toggleBreak.addActionListener(
-				new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						onBreak = !onBreak; //toggle bool
-						System.out.println(onBreak);
-						toggleBreak.setText(onBreak? "on break" : "off break");
-						workScheduler();
-						printBudget();
-						printAssigned();
-						printWork();
-						showSelected(drop.getSelectedIndex()); //update
-					}
-				}
+		toggleBreak = new Button("off break");
+		toggleBreak.setOnAction(event -> {
+			onBreak = !onBreak; //toggle bool
+			System.out.println(onBreak);
+			toggleBreak.setText(onBreak? "on break" : "off break");
+			workScheduler();
+			printBudget();
+			printAssigned();
+			//printWork();
+			showSelected(drop.getSelectionModel().getSelectedIndex()); //update
+		}
+
 				);
 
-		home.add(toggleBreak);
+		home.getChildren().add(toggleBreak);
 		//DROPDOWN GUI:
-		drop = new JComboBox<String>(dateChoices.toArray(new String[dateChoices.size()])); //param = array of options
-		home.add(drop);
-		
-		drop.addItemListener(
-				new ItemListener() {
-					public void itemStateChanged(ItemEvent event) {
-						if(event.getStateChange() == ItemEvent.SELECTED) {
-							showSelected(drop.getSelectedIndex());
-						}
-					}
-				}
-				);
 
-		//TASKS = two panels, toolbar and workTable itself
-		//toolbar:
-		taskToolBar = new JPanel(); 
-		GridBagConstraints gbc = new GridBagConstraints();
-		gbc.gridx = 0; gbc.gridy = 0;
-		tasks.add(taskToolBar, gbc);
-		clickCol = new JLabel("Click col workHeader to sort");
-		taskToolBar.add(clickCol);
-		delete = new JButton("Delete selected");
-		delete.addActionListener(
-				new ActionListener() {
-					public void actionPerformed(ActionEvent event) {
-						workModel.removeRows(workTable.getSelectedRows());
-					}
-				}
-				);
-		add = new JButton("+");
+		drop = new ComboBox<String>();
+		drop.setItems(FXCollections.observableArrayList(dateChoices));
+		drop.setValue(drop.getItems().get(0)); // Set default value to index 0
 
-		//new entry window
-		JFrame newEntry = new JFrame("Create a new work entry"); 
-		newEntry.setLayout(new GridBagLayout());
-		newEntry.setPreferredSize(new Dimension(400,300));
-		JTextField nField = new JTextField();
-		JTextField deField = new JTextField();
-		JTextField duField = new JTextField();
-		JTextField diField = new JTextField();
-		JTextField fField = new JTextField();
-		JButton k = new JButton("Create");
-		nField.setText("Name");
-		deField.setText("Deadline");
-		duField.setText("Duration");
-		diField.setText("Difficulty");
-		fField.setText("Fixed?");
+		home.getChildren().add(drop);
 
-
-		k.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				if (nField.getText().indexOf("\"") != -1)
-				{
-					System.err.println("invalid name");
-					return;
-				}
-
-				if (!(fField.getText().equals("0") || fField.getText().equals("1"))) {
-					System.err.println("invalid boolean");
-					return;
-				}
-				try {
-					System.out.println(nField.getText());
-					System.out.println(LocalDate.parse(deField.getText()));
-					System.out.println(Double.valueOf(duField.getText()));
-					System.out.println(Integer.valueOf(diField.getText()));
-					System.out.println(fField.getText());
-					runSQL(String.format("insert into %s (name, deadline, hr, diff, fixed) values (\"%s\",\'%s\',%s,%s,%s);", tableName, nField.getText(), deField.getText(), duField.getText(), diField.getText(), fField.getText()), true);
-					nField.setText("Name");
-					deField.setText("Deadline");
-					duField.setText("Duration");
-					diField.setText("Difficulty");
-					fField.setText("Fixed?");
-				} catch(Exception ed) {
-					ed.printStackTrace(System.out);
-					System.err.println("invalid date, please try again"); return;}
-
-				createPopupOpen = false;
-				newEntry.setVisible(false);
-				System.out.println("i am ded");
-			}
-
+		drop.setOnAction(event -> {
+			showSelected(drop.getSelectionModel().getSelectedIndex());
 		}
 				);
 
-		GridBagConstraints s = new GridBagConstraints();
-		s.fill = GridBagConstraints.HORIZONTAL;
-		s.gridx = 0; s.gridy = 0; s.gridwidth = 3;
-		newEntry.add(nField, s);
-		s.gridx = 0; s.gridy = 1; s.gridwidth = 3;
-		newEntry.add(deField, s);
-		s.gridx = 0; s.gridy = 2; s.gridwidth = 1;
-		newEntry.add(duField, s);
-		s.gridx = 1; s.gridy = 2; s.gridwidth = 1;
-		newEntry.add(diField, s);
-		s.gridx = 2; s.gridy = 2; s.gridwidth = 1;
-		newEntry.add(fField, s);
-		s.fill = GridBagConstraints.NONE;
-		s.gridx = 1; s.gridy = 3; s.gridwidth = 1;
-		newEntry.add(k, s);
-		newEntry.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-		newEntry.addWindowListener( new WindowListener() {
-
-			public void windowOpened(WindowEvent e) {
-				createPopupOpen = true;
-				System.out.println("i am born");
-			}
-
-			public void windowClosing(WindowEvent e) {
-				createPopupOpen = false;
-				System.out.println("i am ded");
-				newEntry.setVisible(false);
-			}
-
-			public void windowClosed(WindowEvent e) {}
-
-			public void windowIconified(WindowEvent e) {}
-
-			public void windowDeiconified(WindowEvent e) {}
-
-			public void windowActivated(WindowEvent e) {}
-
-			public void windowDeactivated(WindowEvent e) {}
-
-		}
-
-				);
-
-		add.addActionListener(
-				new ActionListener() { //show creation popup if not yet open
-					public void actionPerformed(ActionEvent event) {
-						if (!createPopupOpen) {
-							createPopupOpen = true;
-							newEntry.setVisible(true);
-							newEntry.pack();
-							newEntry.setLocationRelativeTo(null);
-						}
-					}
-				}
-				);
-
-		taskToolBar.add(delete);
-		taskToolBar.add(add);
-
-		tasks.setLayout(new GridBagLayout());
-
-		//workTable:
-		gbc.gridx = 0; gbc.gridy = 1;
-		workModel = new WorkTable();
-		workTable = new JTable(workModel);
-		workModel.loadTable();
+		//		//TASKS = two panels, toolbar and workTable itself
+		//		//toolbar:
+		//		taskToolBar = new JPanel(); 
+		//		GridBagConstraints gbc = new GridBagConstraints();
+		//		gbc.gridx = 0; gbc.gridy = 0;
+		//		tasks.add(taskToolBar, gbc);
+		//		clickCol = new JLabel("Click col workHeader to sort");
+		//		taskToolBar.add(clickCol);
+		//		delete = new JButton("Delete selected");
+		//		delete.addActionListener(
+		//				new ActionListener() {
+		//					public void actionPerformed(ActionEvent event) {
+		//						workModel.removeRows(workTable.getSelectedRows());
+		//					}
+		//				}
+		//				);
+		//		add = new JButton("+");
+		//
+		//		//new entry window
+		//		JFrame newEntry = new JFrame("Create a new work entry"); 
+		//		newEntry.setLayout(new GridBagLayout());
+		//		newEntry.setPreferredSize(new Dimension(400,300));
+		//		JTextField nField = new JTextField();
+		//		JTextField deField = new JTextField();
+		//		JTextField duField = new JTextField();
+		//		JTextField diField = new JTextField();
+		//		JTextField fField = new JTextField();
+		//		JButton k = new JButton("Create");
+		//		nField.setText("Name");
+		//		deField.setText("Deadline");
+		//		duField.setText("Duration");
+		//		diField.setText("Difficulty");
+		//		fField.setText("Fixed?");
+		//
+		//
+		//		k.addActionListener(new ActionListener() {
+		//			public void actionPerformed(ActionEvent e) {
+		//				if (nField.getText().indexOf("\"") != -1)
+		//				{
+		//					System.err.println("invalid name");
+		//					return;
+		//				}
+		//
+		//				if (!(fField.getText().equals("0") || fField.getText().equals("1"))) {
+		//					System.err.println("invalid boolean");
+		//					return;
+		//				}
+		//				try {
+		//					System.out.println(nField.getText());
+		//					System.out.println(LocalDate.parse(deField.getText()));
+		//					System.out.println(Double.valueOf(duField.getText()));
+		//					System.out.println(Integer.valueOf(diField.getText()));
+		//					System.out.println(fField.getText());
+		//					runSQL(String.format("insert into %s (name, deadline, hr, diff, fixed) values (\"%s\",\'%s\',%s,%s,%s);", tableName, nField.getText(), deField.getText(), duField.getText(), diField.getText(), fField.getText()), true);
+		//					nField.setText("Name");
+		//					deField.setText("Deadline");
+		//					duField.setText("Duration");
+		//					diField.setText("Difficulty");
+		//					fField.setText("Fixed?");
+		//				} catch(Exception ed) {
+		//					ed.printStackTrace(System.out);
+		//					System.err.println("invalid date, please try again"); return;}
+		//
+		//				createPopupOpen = false;
+		//				newEntry.setVisible(false);
+		//				System.out.println("i am ded");
+		//			}
+		//
+		//		}
+		//				);
+		//
+		//		GridBagConstraints s = new GridBagConstraints();
+		//		s.fill = GridBagConstraints.HORIZONTAL;
+		//		s.gridx = 0; s.gridy = 0; s.gridwidth = 3;
+		//		newEntry.add(nField, s);
+		//		s.gridx = 0; s.gridy = 1; s.gridwidth = 3;
+		//		newEntry.add(deField, s);
+		//		s.gridx = 0; s.gridy = 2; s.gridwidth = 1;
+		//		newEntry.add(duField, s);
+		//		s.gridx = 1; s.gridy = 2; s.gridwidth = 1;
+		//		newEntry.add(diField, s);
+		//		s.gridx = 2; s.gridy = 2; s.gridwidth = 1;
+		//		newEntry.add(fField, s);
+		//		s.fill = GridBagConstraints.NONE;
+		//		s.gridx = 1; s.gridy = 3; s.gridwidth = 1;
+		//		newEntry.add(k, s);
+		//		newEntry.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		//		newEntry.addWindowListener( new WindowListener() {
+		//
+		//			public void windowOpened(WindowEvent e) {
+		//				createPopupOpen = true;
+		//				System.out.println("i am born");
+		//			}
+		//
+		//			public void windowClosing(WindowEvent e) {
+		//				createPopupOpen = false;
+		//				System.out.println("i am ded");
+		//				newEntry.setVisible(false);
+		//			}
+		//
+		//			public void windowClosed(WindowEvent e) {}
+		//
+		//			public void windowIconified(WindowEvent e) {}
+		//
+		//			public void windowDeiconified(WindowEvent e) {}
+		//
+		//			public void windowActivated(WindowEvent e) {}
+		//
+		//			public void windowDeactivated(WindowEvent e) {}
+		//
+		//		}
+		//
+		//				);
+		//
+		//		add.addActionListener(
+		//				new ActionListener() { //show creation popup if not yet open
+		//					public void actionPerformed(ActionEvent event) {
+		//						if (!createPopupOpen) {
+		//							createPopupOpen = true;
+		//							newEntry.setVisible(true);
+		//							newEntry.pack();
+		//							newEntry.setLocationRelativeTo(null);
+		//						}
+		//					}
+		//				}
+		//				);
+		//
+		//		taskToolBar.add(delete);
+		//		taskToolBar.add(add);
+		//
+		//		tasks.setLayout(new GridBagLayout());
+		//
+		//		//workTable:
+		//		gbc.gridx = 0; gbc.gridy = 1;
+		//		workModel = new WorkTable();
+		//		workTable = new JTable(workModel);
+		//		workModel.loadTable();
+		//		workTable.getTableHeader().setReorderingAllowed(false);
+		//
+		//		tasks.add(new JScrollPane(workTable), gbc);
+		//		/*
+		//		 * workTable.getColumnModel().getColumn(1).setPreferredWidth(30);
+		//		 * workTable.getColumnModel().getColumn(2).setPreferredWidth(10);
+		//		 * workTable.getColumnModel().getColumn(3).setPreferredWidth(10);
+		//		 * workTable.getColumnModel().getColumn(4).setPreferredWidth(10);
+		//		 */
+		//
+		//		reviewModel = new ReviewTable();
+		//		reviewTable = new JTable(reviewModel);
+		//		reviewModel.loadTable();
+		//		reviewTable.getTableHeader().setReorderingAllowed(false);
+		//		gbc.gridx = 1;
+		//		tasks.add(new JScrollPane(reviewTable),gbc);
+		//
+		//		//sort upon click
+		//		JTableHeader workHeader = workTable.getTableHeader();
+		//		workHeader.addMouseListener(new WorkTableHeaderMouseListener());
+		//		JTableHeader reviewHeader = reviewTable.getTableHeader();
+		//		reviewHeader.addMouseListener(new ReviewTableHeaderMouseListener());
+		//
+		//		//workTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+		//		System.out.println("\nNow Printing Work[]: ");
+		//		printWork();
+		show = new GridPane();
+		home.getChildren().add(show);	
+		home.setAlignment(Pos.TOP_CENTER); 
 		showSelected(0); //default show today
-		workTable.getTableHeader().setReorderingAllowed(false);
 
-		tasks.add(new JScrollPane(workTable), gbc);
-		/*
-		 * workTable.getColumnModel().getColumn(1).setPreferredWidth(30);
-		 * workTable.getColumnModel().getColumn(2).setPreferredWidth(10);
-		 * workTable.getColumnModel().getColumn(3).setPreferredWidth(10);
-		 * workTable.getColumnModel().getColumn(4).setPreferredWidth(10);
-		 */
-
-		reviewModel = new ReviewTable();
-		reviewTable = new JTable(reviewModel);
-		reviewModel.loadTable();
-		reviewTable.getTableHeader().setReorderingAllowed(false);
-		gbc.gridx = 1;
-		tasks.add(new JScrollPane(reviewTable),gbc);
-
-		//sort upon click
-		JTableHeader workHeader = workTable.getTableHeader();
-		workHeader.addMouseListener(new WorkTableHeaderMouseListener());
-		JTableHeader reviewHeader = reviewTable.getTableHeader();
-		reviewHeader.addMouseListener(new ReviewTableHeaderMouseListener());
-
-		//workTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-		System.out.println("\nNow Printing Work[]: ");
-		printWork();
-
+		Scene scene = new Scene(home, 1200, 600);
+		primaryStage.setTitle("TimeBudget");
+		primaryStage.setScene(scene);
+		primaryStage.show();
 
 	}
 
@@ -387,8 +400,8 @@ public class GUI extends JFrame {
 			Point point = event.getPoint();
 			int column = workTable.columnAtPoint(point);
 			System.out.println("Header " + column + " clicked");
-			workModel.loadTable(column); //workColNames[column]
-			repaint(); //refresh
+			//			workModel.loadTable(column); //workColNames[column]
+			//repaint(); //refresh
 		}
 	}
 
@@ -397,8 +410,8 @@ public class GUI extends JFrame {
 			Point point = event.getPoint();
 			int column = workTable.columnAtPoint(point);
 			System.out.println("Header " + column + " clicked");
-			reviewModel.loadTable(column); //workColNames[column]
-			repaint(); //refresh
+			//			reviewModel.loadTable(column); //workColNames[column]
+			//repaint(); //refresh
 		}
 	}
 
@@ -475,7 +488,7 @@ public class GUI extends JFrame {
 		public void setValueAt(Object value, int row, int col) {
 			if (col == 7 || col == 6) updateReview((int)reviewModel.getValueAt(row, 0), col, value); 
 		}
-		
+
 		public void removeRows(int[] rows) 
 		{
 			for (int i = 0; i < rows.length; i++) removeRow(rows[i]);
@@ -534,7 +547,7 @@ public class GUI extends JFrame {
 		runSQL("delete from " + tableName + " where id = " + id, true);
 		return;
 	}
-	
+
 	private void removeReview(int id) {
 		runSQL("update " + reviewTableName + " set isDone = 1 where id = " + id, true);
 		return;
@@ -573,17 +586,16 @@ public class GUI extends JFrame {
 		System.out.println("showSelected("+index+");");
 		//shows both leetcode + play and assigned stuff
 		msg.setText(String.valueOf(hrsOnHwToday));
-		if (show != null) {
-			show.removeAll(); //remove previous display
-			remove(show);
-		}
-		else show = new JPanel();
-		GridBagConstraints c = new GridBagConstraints();
-		show.setLayout(new GridBagLayout());
+		show.getChildren().clear();
 
-		home.add(show);	
-		class checkWorkHandler implements ItemListener { 
-			public void itemStateChanged(ItemEvent event) { 
+		//		GridBagConstraints c = new GridBagConstraints();
+		//		show.setLayout(new GridBagLayout());
+
+
+
+
+		class checkWorkHandler implements EventHandler<ActionEvent> {
+			public void handle(ActionEvent event) {
 				for (int i = 0; i < workChecks.size(); ) {
 					if (workChecks.get(i).getKey().isSelected()) {
 						int id = workChecks.get(i).getValue(); //mysql id of the checked box
@@ -599,21 +611,21 @@ public class GUI extends JFrame {
 								else updateWork(id, 2, durLeft - durDone); //col 3 is hr
 							}
 						} catch (SQLException e) {e.printStackTrace();}
-						
+
 						System.err.println("trying to remove "  + i);
-						assignWork.get(drop.getSelectedIndex()).remove(i); //unassign checked item
-						show.remove(workChecks.get(i).getKey());
+						assignWork.get(drop.getSelectionModel().getSelectedIndex()).remove(i); //unassign checked item
+						show.getChildren().remove(workChecks.get(i).getKey());
 						workChecks.remove(i);
-						revalidate(); //to refresh removal
+						//revalidate(); //to refresh removal
 					}
 					else i++;
 				}
-				workModel.loadTable();
+				//				workModel.loadTable();
 			}
 		}
-		
-		class checkReviewHandler implements ItemListener { 
-			public void itemStateChanged(ItemEvent event) { 
+
+		class checkReviewHandler implements EventHandler<ActionEvent> {
+			public void handle(ActionEvent event) {
 				for (int i = 0; i < reviewChecks.size(); ) {
 					if (reviewChecks.get(i).getKey().isSelected()) {
 						int id = reviewChecks.get(i).getValue(); //mysql id of the checked box
@@ -631,21 +643,22 @@ public class GUI extends JFrame {
 						} catch (SQLException e) {e.printStackTrace();}
 
 						System.err.println("trying to remove "  + i);
-						assignReview.get(drop.getSelectedIndex()).remove(i); //unassign checked item
-						show.remove(reviewChecks.get(i).getKey());
+						assignReview.get(drop.getSelectionModel().getSelectedIndex()).remove(i); //unassign checked item
+						show.getChildren().remove(reviewChecks.get(i).getKey());
 						reviewChecks.remove(i);
-						revalidate(); //to refresh removal
+						//revalidate(); //to refresh removal
 					}
 					else i++;
 				}
-				reviewModel.loadTable();
+				//				reviewModel.loadTable();
 			}
 		}
 
-		c.fill = GridBagConstraints.HORIZONTAL;    //fill entire cell with text to center
-		c.gridwidth = 4; c.gridx = 0; c.gridy = 0;   //coords + width of msg element
-		workChecks = new ArrayList<SimpleEntry<JCheckBox, Integer>>(); //handler needs to check if is ReviewEntry, so also store int (index to assignWork)
-		reviewChecks = new ArrayList<SimpleEntry<JCheckBox, Integer>>(); //handler needs to check if is ReviewEntry, so also store int (index to assignWork)
+		//c.fill = GridBagConstraints.HORIZONTAL;    //fill entire cell with text to center
+		//c.gridwidth = 4; c.gridx = 0; c.gridy = 0;   //coords + width of msg element
+		int gridx = 0; int gridy= 0;
+		workChecks = new ArrayList<SimpleEntry<CheckBox, Integer>>(); //handler needs to check if is ReviewEntry, so also store int (index to assignWork)
+		reviewChecks = new ArrayList<SimpleEntry<CheckBox, Integer>>(); //handler needs to check if is ReviewEntry, so also store int (index to assignWork)
 		checkWorkHandler workHandler = new checkWorkHandler();
 		checkReviewHandler reviewHandler = new checkReviewHandler();
 		for (int i = 0; i < assignWork.get(index).size(); i++) {
@@ -655,16 +668,16 @@ public class GUI extends JFrame {
 				if (rs.next()) {
 					LocalDate dueDate = rs.getDate("deadline").toLocalDate();
 					temp = new Entry(rs.getInt("id"), rs.getString("name"), dueDate, rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
-					JCheckBox b = new JCheckBox(temp.name + ",  " + temp.hr + "h");
-					SimpleEntry<JCheckBox, Integer> a = new SimpleEntry<JCheckBox, Integer>(b, assignWork.get(index).get(i).getKey());
+					CheckBox b = new CheckBox(temp.name + ",  " + temp.hr + "h");
+					SimpleEntry<CheckBox, Integer> a = new SimpleEntry<CheckBox, Integer>(b, assignWork.get(index).get(i).getKey());
 					workChecks.add(a);
-					workChecks.get(workChecks.size()-1).getKey().setToolTipText("due " + formatter.format(temp.deadline));
+					workChecks.get(workChecks.size()-1).getKey().setTooltip(new Tooltip("due " + formatter.format(temp.deadline)));
 					//System.out.println(":(" + workChecks.get(workChecks.size()-1).getKey().getText() + " " + workChecks.get(workChecks.size()-1).getValue());
 
-					workChecks.get(workChecks.size()-1).getKey().addItemListener(workHandler);
-					show.add(workChecks.get(workChecks.size()-1).getKey(), c);
-					c.gridy++;
-					workModel.loadTable();
+					workChecks.get(workChecks.size()-1).getKey().setOnAction(workHandler);
+					show.add(workChecks.get(workChecks.size()-1).getKey(), gridx, gridy);
+					gridy++;
+					//					workModel.loadTable();
 				}
 			} catch (SQLException e) {e.printStackTrace();}
 		}
@@ -675,33 +688,32 @@ public class GUI extends JFrame {
 				if (rs.next()) {
 					LocalDate dueDate = rs.getDate("deadline").toLocalDate();
 					temp = new Entry(rs.getInt("id"), classNames.get(rs.getInt("classID")) + " Lect " + rs.getString("lectID"), dueDate, rs.getDouble("hr"), 1, false);
-					JCheckBox b = new JCheckBox(temp.name + ",  " + temp.hr + "h");
-					SimpleEntry<JCheckBox, Integer> a = new SimpleEntry<JCheckBox, Integer>(b, assignReview.get(index).get(i).getKey());
+					CheckBox b = new CheckBox(temp.name + ",  " + temp.hr + "h");
+					SimpleEntry<CheckBox, Integer> a = new SimpleEntry<CheckBox, Integer>(b, assignReview.get(index).get(i).getKey());
 					reviewChecks.add(a);
-					reviewChecks.get(reviewChecks.size()-1).getKey().setToolTipText("due " + formatter.format(temp.deadline));
+					reviewChecks.get(reviewChecks.size()-1).getKey().setTooltip(new Tooltip("due " + formatter.format(temp.deadline)));
 					//System.out.println(":(" + workChecks.get(workChecks.size()-1).getKey().getText() + " " + workChecks.get(workChecks.size()-1).getValue());
 
-					reviewChecks.get(reviewChecks.size()-1).getKey().addItemListener(reviewHandler);
-					show.add(reviewChecks.get(reviewChecks.size()-1).getKey(), c);
-					c.gridy++;
-					reviewModel.loadTable();
+					reviewChecks.get(reviewChecks.size()-1).getKey().setOnAction(reviewHandler);
+					show.add(reviewChecks.get(reviewChecks.size()-1).getKey(), gridx, gridy);
+					gridy++;
+					//					reviewModel.loadTable();
 				}
 			} catch (SQLException e) {e.printStackTrace();}
 		}
-		stats = new JLabel(hrsLeft.get(index) + "/" + (onBreak? breakBudget.get(index) : budget.get(index)) + "h free"); 
-		show.add(stats, c);
+		stats = new Label(hrsLeft.get(index) + "/" + (onBreak? breakBudget.get(index) : budget.get(index)) + "h free"); 
+		show.add(stats,gridx,gridy);
 		if (hrsLeft.get(index) > 0)
 		{
-			c.gridy++; //%.2f to format double show 2 decimal places max
-			leet = new JLabel(formatDuration(hrsLeft.get(index) * 0.6) + " for CS");
-			show.add(leet,c);
-			c.gridy++;
-			play = new JLabel(String.format("%.1fh to play", hrsLeft.get(index) * 0.4));
-			play = new JLabel(formatDuration(hrsLeft.get(index) * 0.4) + " to play");
-			show.add(play,c);
+			gridy++; //%.2f to format double show 2 decimal places max
+			leet = new Label(formatDuration(hrsLeft.get(index) * 0.6) + " for CS");
+			show.add(leet, gridx, gridy);
+			gridy++;
+			play = new Label(formatDuration(hrsLeft.get(index) * 0.4) + " to play");
+			show.add(play, gridx, gridy);
 		}	
 
-		revalidate();
+		//revalidate();
 	}
 
 	String formatDuration(double x) {
@@ -815,9 +827,9 @@ public class GUI extends JFrame {
 				LocalDate dueDate = rs.getDate("deadline").toLocalDate();
 				Entry temp = new Entry(rs.getInt("id"), rs.getString("classID") + " " + rs.getString("lectID"), LocalDate.parse(rs.getString("deadline")), rs.getDouble("hr"), 1, false);
 
-				
-				
-				
+
+
+
 				assignEntry(temp, true);
 			}
 		} catch (SQLException e) {e.printStackTrace();}
@@ -995,13 +1007,13 @@ public class GUI extends JFrame {
 				hrsLeft.set(idealN, hrsLeft.get(idealN) - curr.hr);
 			}
 		}
-		
+
 		if (isReview) {System.out.println("review!");}
 		System.err.println("report.size = " + report.size());
 		for (int i = 0; i < report.size(); i++) {
 			System.err.println("day "+ report.get(i).getKey());
 			if (isReview) {
-				
+
 				/*if (curr.id != assignReview.get(report.get(i).getKey()).get(report.get(i).getValue()).getKey())  {
 					System.out.println("WARNING");
 					System.exit(0);
@@ -1131,7 +1143,7 @@ public class GUI extends JFrame {
 				if (!rs.next()) doGenerate = true; //empty
 			} catch (SQLException e) {e.printStackTrace();}
 		}
-		
+
 
 		Scanner getX = null;
 		try {
@@ -1149,7 +1161,7 @@ public class GUI extends JFrame {
 				}
 				return;
 			}
-			
+
 			int classIndex = 0;
 			while(getX.hasNextLine())
 			{
@@ -1158,7 +1170,7 @@ public class GUI extends JFrame {
 				line = line.substring(line.indexOf("\"", 1)+2); //remove name portion
 				String temp1[] = line.split(",");
 				classNames.add(name);
-				
+
 				for (int i = 1; i < temp1.length; i++) 
 				{
 					//first class at this day of week: week1.plusDays(dayToIndex(initialDayOfWeek(temp[i])));
@@ -1220,8 +1232,8 @@ public class GUI extends JFrame {
 				st.executeUpdate(query);
 				System.out.println(query + " was successful");
 				if (loadTable) {
-					workModel.loadTable();
-					reviewModel.loadTable();
+					//					workModel.loadTable();
+					//					reviewModel.loadTable();
 					editTasks = true; //mark for rerun scheduler once switch to home tab
 				}
 				return 0;
@@ -1252,4 +1264,6 @@ public class GUI extends JFrame {
 			return String.format("\"" + name + "\"\t" + diff + "\t" + hr + "\t" + formatter.format(deadline) + "\t" + isFixed);
 		}
 	}
+
+
 }
