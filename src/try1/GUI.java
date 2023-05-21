@@ -39,14 +39,18 @@ import javax.swing.JTextField;
 import javax.swing.table.DefaultTableModel;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.FlowPane;
@@ -59,6 +63,8 @@ public class GUI extends Application {
 	private String[] reviewColNames = {"id", "classID", "lectID", "lecture", "deadline", "hr", "isDone"};
 	//	private JPanel home, tasks, settings;
 	private FlowPane home;
+	GridPane tasks;
+	private FlowPane settings;
 	private List<LocalDate> week;
 	private List<Double> breakBudget, budget, hrsLeft; //break vs non-break budget
 	private List<List<SimpleEntry<Integer, Double>>> assignWork; //id + length
@@ -79,12 +85,13 @@ public class GUI extends Application {
 	Label leet;
 	List<SimpleEntry<CheckBox, Integer>> workChecks;
 	private List<SimpleEntry<CheckBox, Integer>> reviewChecks;
-	private JTabbedPane tabPane;
+	private TabPane tabPane;
 	private LocalDate week1 = LocalDate.of(2023, 4, 3); //spring quarter instruction starts April 3, this is dummy test var
 	private JTable workTable, reviewTable; 
 	private boolean editTasks = false;
-	private JLabel clickCol;
-	private JPanel taskToolBar; private JButton delete, add;
+	private Label clickCol;
+	private FlowPane taskToolBar; Button delete;
+	private Button add;
 	private double hrsOnHwToday;
 	private LocalDate today;
 	private Connection con;
@@ -106,7 +113,6 @@ public class GUI extends Application {
 
 	public void start(Stage primaryStage) {
 
-
 		//Connection: 
 		try {
 			Class.forName("com.mysql.cj.jdbc.Driver");
@@ -116,34 +122,29 @@ public class GUI extends Application {
 		} catch (ClassNotFoundException e1) {e1.printStackTrace();} catch (SQLException e1) {e1.printStackTrace();}
 
 		today = LocalDate.now();
-		home = new FlowPane();
-		//		add(home);
-		//		home.setLayout(new FlowLayout());
-		//		tasks = new JPanel();
-		//
-		//		settings = new JPanel();
 
-		//		tabPane = new JTabbedPane();
-		//		tabPane.addTab("Home", home);
-		//		tabPane.addTab("Tasks", tasks);
-		//		tabPane.addTab("Settings", settings);
-		//		add(tabPane);
-		//		ChangeListener changeListener = new ChangeListener() {
-		//			@Override
-		//			public void stateChanged(ChangeEvent e) {
-		//
-		//				System.out.println("Tab changed to: " + tabPane.getSelectedIndex());
-		//				if (tabPane.getSelectedIndex() == 0) {
-		//					if (editTasks) { 
-		//						System.out.println("need to reschedule");
-		//						editTasks = false;
-		//						workScheduler(); //recalculate once detect edits made + switch back to home
-		//					}
-		//					showSelected(drop.getSelectedIndex()); //refresh
-		//				}
-		//			}
-		//		};
-		//		tabPane.addChangeListener(changeListener);
+		home = new FlowPane();
+		tasks = new GridPane();
+		settings = new FlowPane();
+
+		tabPane = new TabPane();
+		Tab homeTab = new Tab("Home", home);
+		tabPane.getTabs().add(homeTab);
+		tabPane.getTabs().add(new Tab("Tasks", tasks));
+		tabPane.getTabs().add(new Tab("Settings", settings));
+
+		homeTab.setOnSelectionChanged(e -> {
+			if (homeTab.isSelected())
+			{
+				if (editTasks) { 
+					System.out.println("need to reschedule");
+					editTasks = false;
+					workScheduler(); //recalculate once detect edits made + switch back to home
+				}
+				showSelected(drop.getSelectionModel().getSelectedIndex()); //refresh
+			}
+		}
+				);
 
 		onBreak = false; //default break mode
 		formatter = DateTimeFormatter.ofPattern("M/d/yyyy");
@@ -220,138 +221,97 @@ public class GUI extends Application {
 		}
 				);
 
-		//		//TASKS = two panels, toolbar and workTable itself
-		//		//toolbar:
-		//		taskToolBar = new JPanel(); 
-		//		GridBagConstraints gbc = new GridBagConstraints();
-		//		gbc.gridx = 0; gbc.gridy = 0;
-		//		tasks.add(taskToolBar, gbc);
-		//		clickCol = new JLabel("Click col workHeader to sort");
-		//		taskToolBar.add(clickCol);
-		//		delete = new JButton("Delete selected");
-		//		delete.addActionListener(
-		//				new ActionListener() {
-		//					public void actionPerformed(ActionEvent event) {
-		//						workModel.removeRows(workTable.getSelectedRows());
-		//					}
-		//				}
-		//				);
-		//		add = new JButton("+");
-		//
-		//		//new entry window
-		//		JFrame newEntry = new JFrame("Create a new work entry"); 
-		//		newEntry.setLayout(new GridBagLayout());
-		//		newEntry.setPreferredSize(new Dimension(400,300));
-		//		JTextField nField = new JTextField();
-		//		JTextField deField = new JTextField();
-		//		JTextField duField = new JTextField();
-		//		JTextField diField = new JTextField();
-		//		JTextField fField = new JTextField();
-		//		JButton k = new JButton("Create");
-		//		nField.setText("Name");
-		//		deField.setText("Deadline");
-		//		duField.setText("Duration");
-		//		diField.setText("Difficulty");
-		//		fField.setText("Fixed?");
-		//
-		//
-		//		k.addActionListener(new ActionListener() {
-		//			public void actionPerformed(ActionEvent e) {
-		//				if (nField.getText().indexOf("\"") != -1)
-		//				{
-		//					System.err.println("invalid name");
-		//					return;
-		//				}
-		//
-		//				if (!(fField.getText().equals("0") || fField.getText().equals("1"))) {
-		//					System.err.println("invalid boolean");
-		//					return;
-		//				}
-		//				try {
-		//					System.out.println(nField.getText());
-		//					System.out.println(LocalDate.parse(deField.getText()));
-		//					System.out.println(Double.valueOf(duField.getText()));
-		//					System.out.println(Integer.valueOf(diField.getText()));
-		//					System.out.println(fField.getText());
-		//					runSQL(String.format("insert into %s (name, deadline, hr, diff, fixed) values (\"%s\",\'%s\',%s,%s,%s);", tableName, nField.getText(), deField.getText(), duField.getText(), diField.getText(), fField.getText()), true);
-		//					nField.setText("Name");
-		//					deField.setText("Deadline");
-		//					duField.setText("Duration");
-		//					diField.setText("Difficulty");
-		//					fField.setText("Fixed?");
-		//				} catch(Exception ed) {
-		//					ed.printStackTrace(System.out);
-		//					System.err.println("invalid date, please try again"); return;}
-		//
-		//				createPopupOpen = false;
-		//				newEntry.setVisible(false);
-		//				System.out.println("i am ded");
-		//			}
-		//
-		//		}
-		//				);
-		//
-		//		GridBagConstraints s = new GridBagConstraints();
-		//		s.fill = GridBagConstraints.HORIZONTAL;
-		//		s.gridx = 0; s.gridy = 0; s.gridwidth = 3;
-		//		newEntry.add(nField, s);
-		//		s.gridx = 0; s.gridy = 1; s.gridwidth = 3;
-		//		newEntry.add(deField, s);
-		//		s.gridx = 0; s.gridy = 2; s.gridwidth = 1;
-		//		newEntry.add(duField, s);
-		//		s.gridx = 1; s.gridy = 2; s.gridwidth = 1;
-		//		newEntry.add(diField, s);
-		//		s.gridx = 2; s.gridy = 2; s.gridwidth = 1;
-		//		newEntry.add(fField, s);
-		//		s.fill = GridBagConstraints.NONE;
-		//		s.gridx = 1; s.gridy = 3; s.gridwidth = 1;
-		//		newEntry.add(k, s);
-		//		newEntry.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-		//		newEntry.addWindowListener( new WindowListener() {
-		//
-		//			public void windowOpened(WindowEvent e) {
-		//				createPopupOpen = true;
-		//				System.out.println("i am born");
-		//			}
-		//
-		//			public void windowClosing(WindowEvent e) {
-		//				createPopupOpen = false;
-		//				System.out.println("i am ded");
-		//				newEntry.setVisible(false);
-		//			}
-		//
-		//			public void windowClosed(WindowEvent e) {}
-		//
-		//			public void windowIconified(WindowEvent e) {}
-		//
-		//			public void windowDeiconified(WindowEvent e) {}
-		//
-		//			public void windowActivated(WindowEvent e) {}
-		//
-		//			public void windowDeactivated(WindowEvent e) {}
-		//
-		//		}
-		//
-		//				);
-		//
-		//		add.addActionListener(
-		//				new ActionListener() { //show creation popup if not yet open
-		//					public void actionPerformed(ActionEvent event) {
-		//						if (!createPopupOpen) {
-		//							createPopupOpen = true;
-		//							newEntry.setVisible(true);
-		//							newEntry.pack();
-		//							newEntry.setLocationRelativeTo(null);
-		//						}
-		//					}
-		//				}
-		//				);
-		//
-		//		taskToolBar.add(delete);
-		//		taskToolBar.add(add);
-		//
-		//		tasks.setLayout(new GridBagLayout());
-		//
+		//TASKS = two panels, toolbar and workTable itself
+		//toolbar:
+		taskToolBar = new FlowPane(); 
+		int gridx = 0; int gridy = 0;
+		tasks.add(taskToolBar, gridx, gridy);
+		clickCol = new Label("Click col workHeader to sort");
+		delete = new Button("Delete selected");
+		delete.setOnAction(event -> {
+			workModel.removeRows(workTable.getSelectedRows());
+		}
+				);
+		add = new Button("+");
+		taskToolBar.getChildren().addAll(clickCol, delete, add);
+
+		//new entry window
+		GridPane newEntry = new GridPane(); 
+		Scene scene1 = new Scene(newEntry, 400, 300);
+		Stage stage1 = new Stage();
+		stage1.setTitle("Create a new work entry");
+		stage1.setScene(scene1);
+		//stage1.show();
+
+		TextField nField = new TextField();
+		TextField deField = new TextField();
+		TextField duField = new TextField();
+		TextField diField = new TextField();
+		TextField fField = new TextField();
+		Button k = new Button("Create");
+		nField.setText("Name");
+		deField.setText("Deadline");
+		duField.setText("Duration");
+		diField.setText("Difficulty");
+		fField.setText("Fixed?");
+
+		k.setOnAction(e -> {
+			if (nField.getText().indexOf("\"") != -1)
+			{
+				System.err.println("invalid name");
+				return;
+			}
+
+			if (!(fField.getText().equals("0") || fField.getText().equals("1"))) {
+				System.err.println("invalid boolean");
+				return;
+			}
+			try {
+				System.out.println(nField.getText());
+				System.out.println(LocalDate.parse(deField.getText()));
+				System.out.println(Double.valueOf(duField.getText()));
+				System.out.println(Integer.valueOf(diField.getText()));
+				System.out.println(fField.getText());
+				runSQL(String.format("insert into %s (name, deadline, hr, diff, fixed) values (\"%s\",\'%s\',%s,%s,%s);", tableName, nField.getText(), deField.getText(), duField.getText(), diField.getText(), fField.getText()), true);
+				nField.setText("Name");
+				deField.setText("Deadline");
+				duField.setText("Duration");
+				diField.setText("Difficulty");
+				fField.setText("Fixed?");
+			} catch(Exception ed) {
+				ed.printStackTrace(System.out);
+				System.err.println("invalid date, please try again"); return;}
+
+			createPopupOpen = false;
+			stage1.hide();
+			System.out.println("i am ded");
+
+		}
+				);
+
+		//s.fill = GridBagConstraints.HORIZONTAL;
+		taskToolBar.setHgap(10);
+		taskToolBar.setVgap(30);
+		taskToolBar.setPadding(new Insets(15,15,15,15));
+		taskToolBar.setAlignment(Pos.TOP_CENTER);
+		newEntry.add(nField, 0, 0);
+		newEntry.add(deField, 0, 1);
+		newEntry.add(duField, 0, 2);
+		newEntry.add(diField, 1, 2);
+		newEntry.add(fField, 2, 2);
+		//s.fill = GridBagConstraints.NONE;
+		newEntry.add(k, 1, 3);
+		stage1.setOnHiding( event -> {System.out.println("Hiding Stage"); createPopupOpen = false;} );
+
+		add.setOnAction( e-> { //show creation popup if not yet open
+						if (!createPopupOpen) {
+							createPopupOpen = true;
+							newEntry.setVisible(true);
+							stage1.show();
+						}
+				}
+				);
+
 		//		//workTable:
 		//		gbc.gridx = 0; gbc.gridy = 1;
 		//		workModel = new WorkTable();
@@ -388,7 +348,7 @@ public class GUI extends Application {
 		home.setAlignment(Pos.TOP_CENTER); 
 		showSelected(0); //default show today
 
-		Scene scene = new Scene(home, 1200, 600);
+		Scene scene = new Scene(tabPane, 1200, 600);
 		primaryStage.setTitle("TimeBudget");
 		primaryStage.setScene(scene);
 		primaryStage.show();
