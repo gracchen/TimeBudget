@@ -13,6 +13,7 @@ import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -40,7 +41,9 @@ import javax.swing.table.DefaultTableModel;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -49,14 +52,24 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.cell.CheckBoxTableCell;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
+import javafx.util.converter.DoubleStringConverter;
+import javafx.util.converter.IntegerStringConverter;
+import javafx.util.converter.LocalDateStringConverter;
 
 public class GUI extends Application {
 	private String[] workColNames = {"id", "name", "deadline", "hr", "diff", "fixed"};
@@ -87,7 +100,8 @@ public class GUI extends Application {
 	private List<SimpleEntry<CheckBox, Integer>> reviewChecks;
 	private TabPane tabPane;
 	private LocalDate week1 = LocalDate.of(2023, 4, 3); //spring quarter instruction starts April 3, this is dummy test var
-	private JTable workTable, reviewTable; 
+	WorkTable workTable;
+	private ReviewTable reviewTable; 
 	private boolean editTasks = false;
 	private Label clickCol;
 	private FlowPane taskToolBar; Button delete;
@@ -228,10 +242,7 @@ public class GUI extends Application {
 		tasks.add(taskToolBar, gridx, gridy);
 		clickCol = new Label("Click col workHeader to sort");
 		delete = new Button("Delete selected");
-		delete.setOnAction(event -> {
-			workModel.removeRows(workTable.getSelectedRows());
-		}
-				);
+
 		add = new Button("+");
 		taskToolBar.getChildren().addAll(clickCol, delete, add);
 
@@ -293,7 +304,6 @@ public class GUI extends Application {
 		taskToolBar.setHgap(10);
 		taskToolBar.setVgap(30);
 		taskToolBar.setPadding(new Insets(15,15,15,15));
-		taskToolBar.setAlignment(Pos.TOP_CENTER);
 		newEntry.add(nField, 0, 0);
 		newEntry.add(deField, 0, 1);
 		newEntry.add(duField, 0, 2);
@@ -312,37 +322,44 @@ public class GUI extends Application {
 				}
 				);
 
-		//		//workTable:
-		//		gbc.gridx = 0; gbc.gridy = 1;
-		//		workModel = new WorkTable();
-		//		workTable = new JTable(workModel);
-		//		workModel.loadTable();
-		//		workTable.getTableHeader().setReorderingAllowed(false);
-		//
-		//		tasks.add(new JScrollPane(workTable), gbc);
-		//		/*
-		//		 * workTable.getColumnModel().getColumn(1).setPreferredWidth(30);
-		//		 * workTable.getColumnModel().getColumn(2).setPreferredWidth(10);
-		//		 * workTable.getColumnModel().getColumn(3).setPreferredWidth(10);
-		//		 * workTable.getColumnModel().getColumn(4).setPreferredWidth(10);
-		//		 */
-		//
-		//		reviewModel = new ReviewTable();
-		//		reviewTable = new JTable(reviewModel);
-		//		reviewModel.loadTable();
-		//		reviewTable.getTableHeader().setReorderingAllowed(false);
-		//		gbc.gridx = 1;
-		//		tasks.add(new JScrollPane(reviewTable),gbc);
-		//
-		//		//sort upon click
-		//		JTableHeader workHeader = workTable.getTableHeader();
-		//		workHeader.addMouseListener(new WorkTableHeaderMouseListener());
-		//		JTableHeader reviewHeader = reviewTable.getTableHeader();
-		//		reviewHeader.addMouseListener(new ReviewTableHeaderMouseListener());
-		//
-		//		//workTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-		//		System.out.println("\nNow Printing Work[]: ");
-		//		printWork();
+		//workTable:
+		workTable = new WorkTable();
+		TableView<Entry> tableView = workTable.createTableView();
+		workTable.loadTable();
+		delete.setOnAction(event -> {
+			workTable.removeRows(tableView.getSelectionModel().getSelectedIndices());
+		}
+				);
+		//workTable.getTableHeader().setReorderingAllowed(false);
+		ScrollPane scrollPane = new ScrollPane(tableView);
+		tasks.add(scrollPane, 0,1);
+		scrollPane.setFitToWidth(true);
+		scrollPane.setFitToHeight(true);
+				/*
+				 * workTable.getColumnModel().getColumn(1).setPreferredWidth(30);
+				 * workTable.getColumnModel().getColumn(2).setPreferredWidth(10);
+				 * workTable.getColumnModel().getColumn(3).setPreferredWidth(10);
+				 * workTable.getColumnModel().getColumn(4).setPreferredWidth(10);
+				 */
+		
+		//REVIEW TABLE
+		reviewTable = new ReviewTable();
+		TableView<ReviewEntry> reviewTableView = reviewTable.createTableView();
+		reviewTable.loadTable();
+		delete.setOnAction(event -> {
+			reviewTable.removeRows(reviewTableView.getSelectionModel().getSelectedIndices());
+		}
+				);
+		//workTable.getTableHeader().setReorderingAllowed(false);
+		ScrollPane scrollPane2 = new ScrollPane(reviewTableView);
+		tasks.add(scrollPane2, 1,1);
+		scrollPane2.setFitToWidth(true);
+		scrollPane2.setFitToHeight(true);
+		
+		//workTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+		System.out.println("\nNow Printing Work[]: ");
+		//printWork();
+		
 		show = new GridPane();
 		home.getChildren().add(show);	
 		home.setAlignment(Pos.TOP_CENTER); 
@@ -355,152 +372,209 @@ public class GUI extends Application {
 
 	}
 
-	public class WorkTableHeaderMouseListener extends MouseAdapter {
-		public void mouseClicked(MouseEvent event) {
-			Point point = event.getPoint();
-			int column = workTable.columnAtPoint(point);
-			System.out.println("Header " + column + " clicked");
-			//			workModel.loadTable(column); //workColNames[column]
-			//repaint(); //refresh
-		}
-	}
 
-	public class ReviewTableHeaderMouseListener extends MouseAdapter {
-		public void mouseClicked(MouseEvent event) {
-			Point point = event.getPoint();
-			int column = workTable.columnAtPoint(point);
-			System.out.println("Header " + column + " clicked");
-			//			reviewModel.loadTable(column); //workColNames[column]
-			//repaint(); //refresh
-		}
-	}
+	private class WorkTable {
+		private ObservableList<Entry> data;
+		
+		public TableView<Entry> createTableView() {
+			data = FXCollections.observableArrayList();
+			TableView<Entry> tableView = new TableView<Entry>(data);
 
-	private class WorkTable extends DefaultTableModel {
-		public void refreshAll() {
-			fireTableDataChanged();
+	        TableColumn<Entry, Integer> idColumn = new TableColumn<>("ID");
+	        idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
+	        idColumn.setReorderable(false);
+	        
+	        TableColumn<Entry, String> nameColumn = new TableColumn<>("Name");
+	        nameColumn.setCellFactory(TextFieldTableCell.forTableColumn());
+	        nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
+	        nameColumn.setOnEditCommit(e->e.getTableView().getItems().get(e.getTablePosition().getRow()).setName(e.getNewValue()));
+	        nameColumn.setReorderable(false);
+
+	        TableColumn<Entry, LocalDate> deadlineColumn = new TableColumn<>("Deadline");
+	        deadlineColumn.setCellFactory(TextFieldTableCell.forTableColumn(new LocalDateStringConverter()));
+	        deadlineColumn.setCellValueFactory(new PropertyValueFactory<>("deadline"));
+	        deadlineColumn.setReorderable(false);
+	        deadlineColumn.setOnEditCommit(e->
+	        {
+	        	try {
+	        		e.getTableView().getItems().get(e.getTablePosition().getRow()).setDeadline(e.getNewValue());
+	        	} catch (Exception e1) {System.err.println("oops");}
+	        });
+
+	        TableColumn<Entry, Double> hrColumn = new TableColumn<>("Hr");
+	        hrColumn.setCellFactory(TextFieldTableCell.forTableColumn(new DoubleStringConverter()));
+	        hrColumn.setCellValueFactory(new PropertyValueFactory<>("hr"));
+	        hrColumn.setOnEditCommit(e->e.getTableView().getItems().get(e.getTablePosition().getRow()).setHr(e.getNewValue()));
+	        hrColumn.setReorderable(false);
+
+	        TableColumn<Entry, Integer> diffColumn = new TableColumn<>("Diff");
+	        diffColumn.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
+	        diffColumn.setCellValueFactory(new PropertyValueFactory<>("diff"));
+	        diffColumn.setOnEditCommit(e->e.getTableView().getItems().get(e.getTablePosition().getRow()).setDiff(e.getNewValue()));
+	        diffColumn.setReorderable(false);
+
+	        TableColumn<Entry, Boolean> fixedColumn = new TableColumn<>("Fixed");
+	     // Set the cell factory for the fixedColumn to use CheckBoxTableCell
+	        fixedColumn.setCellFactory(CheckBoxTableCell.forTableColumn(fixedColumn));
+	        
+	        // Map the fixedColumn to the corresponding property in the Entry class
+	        fixedColumn.setCellValueFactory(cellData -> new SimpleBooleanProperty(cellData.getValue().getFixed()));
+	        fixedColumn.setOnEditCommit(e -> {
+	            Entry entry = e.getRowValue();
+	            entry.setFixed();
+	            System.out.println("EHE");
+	        });
+	        
+	        fixedColumn.setReorderable(false);
+
+	        tableView.getColumns().addAll(idColumn, nameColumn, deadlineColumn, hrColumn, diffColumn, fixedColumn);
+	        tableView.setEditable(true); 
+	        tableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+	        
+	        return tableView;
 		}
-		public void removeRows(int[] rows) 
+
+		public void addRow(Entry e) {
+			data.add(e);
+		}
+
+		public void removeRow(int row) {
+			runSQL("delete from " + tableName + " where id = " + data.get(row).getId(), true);
+			System.out.println("removing id " + data.get(row).getId() + " of name " + data.get(row).getName());
+			data.remove(row);
+		}
+		
+		public void removeRows(ObservableList<Integer> observableList) 
 		{
-			for (int i = 0; i < rows.length; i++)
-				removeRow(rows[i]);
+			ArrayList<Integer> selectedList = new ArrayList<>(observableList);
+			Collections.sort(selectedList, Collections.reverseOrder());
+			
+			for (int i = 0; i < selectedList.size(); i++)
+				removeRow(selectedList.get(i));
 		}
+
 		public void loadTable() {
-			loadTable(workTableSortedByCol);
-		}
-		public void loadTable(int sortByCol) {
-			workTableSortedByCol = sortByCol;
-			setRowCount(0);
-			runSQL("select * from " + tableName + " order by " + workColNames[sortByCol] + ";", false);
+			data.clear();
+			//loadTable(workTableSortedByCol);
+			runSQL("select * from " + tableName + ";", false);
 			try {
 				while(rs.next())
-					workModel.addRow(new Object[]{rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed")});
+					data.add(new Entry(rs.getInt("id"),rs.getString("name"), rs.getDate("deadline").toLocalDate(), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed")));
 				//System.out.printf("%s:%s:%s\n", rs.getString("id"), rs.getString("name"), rs.getString("fixed"));
 				System.out.println("successfully imported mySQL workTable to JTable");
 			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
 		}
-		public Class<?> getColumnClass(int column) {
-			switch (column) {
-			case 0:	//id
-				return Integer.class;
-			case 1:	//name
-				return String.class;
-			case 2:	//deadline
-				return String.class;
-			case 3:	//hr
-				return Double.class;
-			case 4:	//diff
-				return Integer.class;
-			default://fixed
-				return Boolean.class;
-			}
-		}
-		private static final long serialVersionUID = 1L;
-		public String getColumnName(int col) {
-			switch(col) {
-			case 0: return "ID";
-			case 1: return "Name";
-			case 2: return "Deadline";
-			case 3: return "Hr";
-			case 4: return "Diff";
-			default: return "Fixed";
-			}
-		}
-		public int getColumnCount() { return 6; }
-		public void setValueAt(Object value, int row, int col) {
-			if (col == 2) {
-				try {
-					LocalDate d = LocalDate.parse((String) value);
-					updateWork((int)workModel.getValueAt(row, 0), col, d); 
-				} catch (Exception e) { System.err.println(value+" invalid date"); }
-			}
-			else
-				updateWork((int)workModel.getValueAt(row, 0), col, value); //0th col of row is mysql id
-		}
-		public boolean isCellEditable(int row, int col) {
-			return (col != 0); //id col not editable
-		}
+//		public void loadTable(int sortByCol) {
+//			workTableSortedByCol = sortByCol;
+//			setRowCount(0);
+//			runSQL("select * from " + tableName + " order by " + workColNames[sortByCol] + ";", false);
+//			try {
+//				while(rs.next())
+//					workModel.addRow(new Object[]{rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed")});
+//				//System.out.printf("%s:%s:%s\n", rs.getString("id"), rs.getString("name"), rs.getString("fixed"));
+//				System.out.println("successfully imported mySQL workTable to JTable");
+//			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
+//		}
 	}
+	
+	///////////////////////////
 
-	private class ReviewTable extends DefaultTableModel {
-		public boolean isCellEditable(int row, int col) {
-			return (col == 7 || col == 6); //only isDone and duration editable
-		}
-		public void setValueAt(Object value, int row, int col) {
-			if (col == 7 || col == 6) updateReview((int)reviewModel.getValueAt(row, 0), col, value); 
+	private class ReviewTable {
+		private ObservableList<ReviewEntry> data;
+		
+		public TableView<ReviewEntry> createTableView() {
+			data = FXCollections.observableArrayList();
+			TableView<ReviewEntry> tableView = new TableView<ReviewEntry>(data);
+
+	        TableColumn<ReviewEntry, Integer> idColumn = new TableColumn<>("ID");
+	        idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
+	        idColumn.setReorderable(false);
+	        
+	        TableColumn<ReviewEntry, Integer> classIDColumn = new TableColumn<>("classID");
+	        classIDColumn.setCellValueFactory(new PropertyValueFactory<>("classID"));
+	        classIDColumn.setReorderable(false);
+
+	        TableColumn<ReviewEntry, String> classColumn = new TableColumn<>("Class");
+	        classColumn.setCellValueFactory(new PropertyValueFactory<>("className"));
+	        classColumn.setReorderable(false);
+	        
+	        TableColumn<ReviewEntry, Double> lectIDColumn = new TableColumn<>("lectID");
+	        lectIDColumn.setCellValueFactory(new PropertyValueFactory<>("lectID"));
+	        lectIDColumn.setReorderable(false);
+
+	        TableColumn<ReviewEntry, LocalDate> lectureColumn = new TableColumn<>("Lecture");
+	        lectureColumn.setCellValueFactory(new PropertyValueFactory<>("lecture"));
+	        lectureColumn.setReorderable(false);
+
+	        TableColumn<ReviewEntry, LocalDate> deadlineColumn = new TableColumn<>("Deadline");
+	        deadlineColumn.setCellValueFactory(new PropertyValueFactory<>("deadline"));
+	        deadlineColumn.setReorderable(false);
+
+	        TableColumn<ReviewEntry, Double> hrColumn = new TableColumn<>("Hr");
+	        hrColumn.setCellFactory(TextFieldTableCell.forTableColumn(new DoubleStringConverter()));
+	        hrColumn.setCellValueFactory(new PropertyValueFactory<>("hr"));
+	        hrColumn.setOnEditCommit(e->e.getTableView().getItems().get(e.getTablePosition().getRow()).setHr(e.getNewValue()));
+	        hrColumn.setReorderable(false);
+
+	        TableColumn<ReviewEntry, Boolean> doneColumn = new TableColumn<>("IsDone");
+	        doneColumn.setCellFactory(CheckBoxTableCell.forTableColumn(doneColumn));
+	        doneColumn.setCellValueFactory(cellData -> new SimpleBooleanProperty(cellData.getValue().getIsDone()));
+	        doneColumn.setOnEditCommit(e -> {
+	            ReviewEntry entry = e.getRowValue();
+	            entry.setIsDone();
+	            System.out.println("EHE");
+	        });
+	        doneColumn.setReorderable(false);
+
+	        tableView.getColumns().addAll(idColumn, classIDColumn, classColumn, lectIDColumn,lectureColumn, deadlineColumn, hrColumn, doneColumn);
+	        tableView.setEditable(true); 
+	        tableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+	        
+	        return tableView;
 		}
 
-		public void removeRows(int[] rows) 
+		public void addRow(ReviewEntry e) {
+			data.add(e);
+		}
+
+		public void removeRow(int row) {
+			runSQL("delete from " + reviewTableName + " where id = " + data.get(row).getId(), true);
+			System.out.println("removing id " + data.get(row).getId() + " of name " + data.get(row).getClass());
+			data.remove(row);
+		}
+		
+		public void removeRows(ObservableList<Integer> observableList) 
 		{
-			for (int i = 0; i < rows.length; i++) removeRow(rows[i]);
+			ArrayList<Integer> selectedList = new ArrayList<>(observableList);
+			Collections.sort(selectedList, Collections.reverseOrder());
+			
+			for (int i = 0; i < selectedList.size(); i++)
+				removeRow(selectedList.get(i));
 		}
-		public void loadTable(int sortByCol) {
-			reviewTableSortedByCol = sortByCol;
-			runSQL("select * from " + reviewTableName + " order by " + reviewColNames[sortByCol] + ";", false);
-			setRowCount(0);
+
+		public void loadTable() {
+			data.clear();
+			//loadTable(workTableSortedByCol);
+			runSQL("select * from " + reviewTableName + ";", false);
 			try {
 				while(rs.next())
-					reviewModel.addRow(new Object[]{rs.getInt("id"),rs.getInt("classID"), classNames.get(rs.getInt("classID")), rs.getDouble("lectID"), rs.getDate("lecture"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getBoolean("isDone")});
+					data.add(new ReviewEntry(rs.getInt("id"),rs.getInt("classID"),classNames.get(rs.getInt("classID")), rs.getDouble("lectID"), rs.getDate("lecture").toLocalDate(), rs.getDate("deadline").toLocalDate(), rs.getDouble("hr"), rs.getBoolean("isDone")));
+				
 				//System.out.printf("%s:%s:%s\n", rs.getString("id"), rs.getString("name"), rs.getString("fixed"));
-				System.out.println("successfully imported mySQL review workTable to JTable");
-			} catch (SQLException e) {e.printStackTrace(); System.err.println("load review workTable failed");}
+				System.out.println("successfully imported mySQL workTable to JTable");
+			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
 		}
-		public void loadTable() {
-			loadTable(reviewTableSortedByCol);
-		}
-
-		public Class<?> getColumnClass(int column) {
-			switch (column) {
-			case 0:	//id
-			case 1:	//classID
-				return Integer.class;
-			case 2: //className
-				return String.class;
-			case 3:	//lectID
-				return Double.class;
-			case 4:	//lecture
-				return LocalDate.class;
-			case 5:	//deadline
-				return LocalDate.class;
-			case 6:	//hr
-				return Double.class;
-			default://isDone
-				return Boolean.class;
-			}
-		}
-		private static final long serialVersionUID = 1L;
-		public String getColumnName(int col) {
-			switch(col) {
-			case 0: return "id";
-			case 1: return "classID";
-			case 2: return "className";
-			case 3: return "lectID";
-			case 4: return "lecture";
-			case 5: return "deadline";
-			case 6: return "hr";
-			default: return "isDone";
-			}
-		}
-		public int getColumnCount() { return 8; }
+//		public void loadTable(int sortByCol) {
+//			workTableSortedByCol = sortByCol;
+//			setRowCount(0);
+//			runSQL("select * from " + tableName + " order by " + workColNames[sortByCol] + ";", false);
+//			try {
+//				while(rs.next())
+//					workModel.addRow(new Object[]{rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed")});
+//				//System.out.printf("%s:%s:%s\n", rs.getString("id"), rs.getString("name"), rs.getString("fixed"));
+//				System.out.println("successfully imported mySQL workTable to JTable");
+//			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
+//		}
 	}
 
 	private void removeWork(int id) {
@@ -807,7 +881,7 @@ public class GUI extends Application {
 		}
 		if (n<=0 && isReview) n = 8; //deadline passed, assignWork review to any day this week
 
-		if (curr.isFixed) 
+		if (curr.fixed) 
 		{
 			assignWork.get((int) n).add(new SimpleEntry<Integer, Double>(curr.id, curr.hr)); //id of mysql entry assigned to date n's list
 			report.add(new SimpleEntry<Integer,Integer>(n, assignWork.size()-1));
@@ -1167,17 +1241,17 @@ public class GUI extends Application {
 		}
 	}
 
-	void loadTable() {
-		workModel.setRowCount(0); //clear the workTable
-		runSQL("select * from " + tableName + " ", false);
-		try {
-			while(rs.next()) {
-				workModel.addRow(new Object[]{rs.getInt("id"), rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed")});
-				System.out.printf("%s\t%s\t%s\t%s\t%s\t%s\n", rs.getInt("id"), rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
-			}
-			System.out.println("successfully imported mySQL workTable to JTable");
-		} catch (SQLException e) {e.printStackTrace(); System.err.println("B rs.next() failed");}
-	}
+//	void loadTable() {
+//		workModel.setRowCount(0); //clear the workTable
+//		runSQL("select * from " + tableName + " ", false);
+//		try {
+//			while(rs.next()) {
+//				workModel.addRow(new Object[]{rs.getInt("id"), rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed")});
+//				System.out.printf("%s\t%s\t%s\t%s\t%s\t%s\n", rs.getInt("id"), rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
+//			}
+//			System.out.println("successfully imported mySQL workTable to JTable");
+//		} catch (SQLException e) {e.printStackTrace(); System.err.println("B rs.next() failed");}
+//	}
 
 	int runSQL(String query, boolean loadTable) {
 		if (query.indexOf("select") == 0) {
@@ -1203,13 +1277,13 @@ public class GUI extends Application {
 
 	}
 
-	private class Entry {
-		int id;
-		String name;
-		LocalDate deadline;
-		double hr;
-		int diff;
-		boolean isFixed;
+	public class Entry {
+		private int id;
+		private String name;
+		private LocalDate deadline;
+		private double hr;
+		private int diff;
+		private boolean fixed;
 
 		Entry(int i, String n, LocalDate de, double h, int di, boolean t) {
 			id = i;
@@ -1217,12 +1291,108 @@ public class GUI extends Application {
 			deadline = de;
 			hr = h;
 			diff = di;
-			isFixed = t;
+			fixed = t;
 		}
 
-		public String toString() {
-			return String.format("\"" + name + "\"\t" + diff + "\t" + hr + "\t" + formatter.format(deadline) + "\t" + isFixed);
+		public int getId() {
+			return id;
 		}
+		
+		public String getName() {
+			return name;
+		}
+		public void setName(String name) {
+			this.name = name;
+			runSQL("update " + tableName + " set name = \"" + name + "\" where id = " + id, true);
+		}
+		
+		public LocalDate getDeadline() {
+			return deadline;
+		}
+		public void setDeadline(LocalDate string) {
+			this.deadline = string;
+			runSQL("update " + tableName + " set deadline = \"" + string + "\" where id = " + id, true);
+		}
+		
+		public double getHr() {
+			return hr;
+		}
+		public void setHr(Double newValue) {
+			hr = newValue;
+			runSQL("update " + tableName + " set hr = " + newValue + " where id = " + id, true);
+		}
+		
+		public int getDiff() {
+			return diff;
+		}
+		public void setDiff(int newValue) {
+			diff = newValue;
+			runSQL("update " + tableName + " set diff = " + newValue + " where id = " + id, true);
+
+		}
+		
+		public boolean getFixed() {
+			return fixed;
+		}
+		public void setFixed() {
+			fixed = !fixed;
+			System.out.println("fixed is now = " + fixed);
+			runSQL("update " + tableName + " set fixed = " + fixed + " where id = " + id, true);
+		}
+		
+		public String toString() {
+			return String.format("\"" + name + "\"\t" + diff + "\t" + hr + "\t" + formatter.format(deadline) + "\t" + fixed);
+		}
+	}
+
+	public class ReviewEntry {
+		private int id;
+		private int classID;
+		private String className;
+		private Double lectID;
+		private LocalDate lecture;
+		private LocalDate deadline;
+		private double hr;
+		private boolean isDone;
+
+		ReviewEntry(int id, int classID, String className, Double lectID, LocalDate lecture, LocalDate deadline, double hr, boolean isDone) {
+			this.id = id;
+			this.classID = classID;
+			this.className = className;
+			this.lectID = lectID;
+			this.lecture = lecture;
+			this.deadline = deadline;
+			this.hr = hr;
+			this.isDone = isDone;
+		}
+
+		public int getId() {return id;}
+		
+		public int getClassID() {return classID;}
+		
+		public String getClassName() {return className;}
+		
+		public Double getLectID() {return lectID;}
+		
+		public LocalDate getDeadline() {return deadline;}
+		
+		public LocalDate getLecture() {return lecture;}
+		
+		public double getHr() {return hr;}
+		
+		public void setHr(Double newValue) {
+			hr = newValue;
+			runSQL("update " + reviewTableName + " set hr = " + newValue + " where id = " + id, true);
+		}
+		
+		public boolean getIsDone() {return isDone;}
+
+		public void setIsDone() {
+			isDone = !isDone;
+			System.out.println("isDone is now = " + isDone);
+			runSQL("update " + reviewTableName + " set fixed = " + isDone + " where id = " + id, true);
+		}
+
 	}
 
 
