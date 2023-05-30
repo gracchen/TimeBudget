@@ -18,6 +18,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -70,13 +71,15 @@ import javafx.stage.Stage;
 import javafx.util.converter.DoubleStringConverter;
 import javafx.util.converter.IntegerStringConverter;
 import javafx.util.converter.LocalDateStringConverter;
+import try1.WorkTablePane;
+import try1.Connect;
 
 public class GUI extends Application {
 	private String[] workColNames = {"id", "name", "deadline", "hr", "diff", "fixed"};
 	private String[] reviewColNames = {"id", "classID", "lectID", "lecture", "deadline", "hr", "isDone"};
 	//	private JPanel home, tasks, settings;
 	private FlowPane home;
-	GridPane tasks;
+	GridPane tasks, comments;
 	private FlowPane settings;
 	private List<LocalDate> week;
 	private List<Double> breakBudget, budget, hrsLeft; //break vs non-break budget
@@ -100,20 +103,17 @@ public class GUI extends Application {
 	private List<SimpleEntry<CheckBox, Integer>> reviewChecks;
 	private TabPane tabPane;
 	private LocalDate week1 = LocalDate.of(2023, 4, 3); //spring quarter instruction starts April 3, this is dummy test var
-	WorkTable workTable;
+	WorkTablePane workPane;
 	private ReviewTable reviewTable; 
 	private boolean editTasks = false;
 	private Label clickCol;
-	private FlowPane taskToolBar; Button delete;
+	private FlowPane taskToolBar, commentBar; Button delete;
 	private Button add;
 	private double hrsOnHwToday;
 	private LocalDate today;
-	private Connection con;
-	private Statement st;
-	private ResultSet rs;
+	private Connect c;
 	private String tableName = "time";
 	private String reviewTableName = "review";
-	private WorkTable workModel;
 	private ReviewTable reviewModel;
 	private boolean createPopupOpen = false;
 	private int workTableSortedByCol = 0;
@@ -126,25 +126,20 @@ public class GUI extends Application {
 	}
 
 	public void start(Stage primaryStage) {
-
-		//Connection: 
-		try {
-			Class.forName("com.mysql.cj.jdbc.Driver");
-			con=DriverManager.getConnection(
-					"jdbc:mysql://upw0dxpo8jbhxutr:5sbWqBapPMO5lAaznMG6@byiig0vngbvcenz9feed-mysql.services.clever-cloud.com:3306/byiig0vngbvcenz9feed", "upw0dxpo8jbhxutr", "5sbWqBapPMO5lAaznMG6");
-			st=con.createStatement();
-		} catch (ClassNotFoundException e1) {e1.printStackTrace();} catch (SQLException e1) {e1.printStackTrace();}
-
+		c = new Connect();
+		
 		today = LocalDate.now();
 
 		home = new FlowPane();
 		tasks = new GridPane();
+		comments = new GridPane();
 		settings = new FlowPane();
 
 		tabPane = new TabPane();
 		Tab homeTab = new Tab("Home", home);
 		tabPane.getTabs().add(homeTab);
 		tabPane.getTabs().add(new Tab("Tasks", tasks));
+		tabPane.getTabs().add(new Tab("Comments", comments));
 		tabPane.getTabs().add(new Tab("Settings", settings));
 
 		homeTab.setOnSelectionChanged(e -> {
@@ -234,15 +229,22 @@ public class GUI extends Application {
 			showSelected(drop.getSelectionModel().getSelectedIndex());
 		}
 				);
+		
+		//COMMENTS
+		commentBar = new FlowPane();
+		comments.add(commentBar, 0, 0);
+		
+		
 
 		//TASKS = two panels, toolbar and workTable itself
 		//toolbar:
 		taskToolBar = new FlowPane(); 
+		
 		int gridx = 0; int gridy = 0;
 		tasks.add(taskToolBar, gridx, gridy);
 		clickCol = new Label("Click col workHeader to sort");
 		delete = new Button("Delete selected");
-
+		
 		add = new Button("+");
 		taskToolBar.getChildren().addAll(clickCol, delete, add);
 
@@ -323,18 +325,16 @@ public class GUI extends Application {
 				);
 
 		//workTable:
-		workTable = new WorkTable();
-		TableView<Entry> tableView = workTable.createTableView();
-		workTable.loadTable();
+		
+		workPane = new WorkTablePane(tableName);
 		delete.setOnAction(event -> {
-			workTable.removeRows(tableView.getSelectionModel().getSelectedIndices());
+			workPane.removeSelected();
 		}
-				);
+		);
+
 		//workTable.getTableHeader().setReorderingAllowed(false);
-		ScrollPane scrollPane = new ScrollPane(tableView);
-		tasks.add(scrollPane, 0,1);
-		scrollPane.setFitToWidth(true);
-		scrollPane.setFitToHeight(true);
+		tasks.add(workPane.getScrollPane(), 0,1);
+		
 				/*
 				 * workTable.getColumnModel().getColumn(1).setPreferredWidth(30);
 				 * workTable.getColumnModel().getColumn(2).setPreferredWidth(10);
@@ -371,111 +371,65 @@ public class GUI extends Application {
 		primaryStage.show();
 
 	}
-
-
-	private class WorkTable {
-		private ObservableList<Entry> data;
+	
+	private class CommentsTable {
+		private ObservableList<CommentsEntry> data;
 		
-		public TableView<Entry> createTableView() {
+		public TableView<CommentsEntry> createTableView() {
 			data = FXCollections.observableArrayList();
-			TableView<Entry> tableView = new TableView<Entry>(data);
+			TableView<CommentsEntry> tableView = new TableView<CommentsEntry>(data);
 
-	        TableColumn<Entry, Integer> idColumn = new TableColumn<>("ID");
-	        idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
-	        idColumn.setReorderable(false);
+	        TableColumn<CommentsEntry, Integer> IDColumn = new TableColumn<>("ID");
+	        IDColumn.setCellValueFactory(new PropertyValueFactory<>("ID"));
+	        IDColumn.setReorderable(false);
 	        
-	        TableColumn<Entry, String> nameColumn = new TableColumn<>("Name");
-	        nameColumn.setCellFactory(TextFieldTableCell.forTableColumn());
-	        nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
-	        nameColumn.setOnEditCommit(e->e.getTableView().getItems().get(e.getTablePosition().getRow()).setName(e.getNewValue()));
-	        nameColumn.setReorderable(false);
-
-	        TableColumn<Entry, LocalDate> deadlineColumn = new TableColumn<>("Deadline");
-	        deadlineColumn.setCellFactory(TextFieldTableCell.forTableColumn(new LocalDateStringConverter()));
-	        deadlineColumn.setCellValueFactory(new PropertyValueFactory<>("deadline"));
-	        deadlineColumn.setReorderable(false);
-	        deadlineColumn.setOnEditCommit(e->
-	        {
-	        	try {
-	        		e.getTableView().getItems().get(e.getTablePosition().getRow()).setDeadline(e.getNewValue());
-	        	} catch (Exception e1) {System.err.println("oops");}
-	        });
-
-	        TableColumn<Entry, Double> hrColumn = new TableColumn<>("Hr");
-	        hrColumn.setCellFactory(TextFieldTableCell.forTableColumn(new DoubleStringConverter()));
-	        hrColumn.setCellValueFactory(new PropertyValueFactory<>("hr"));
-	        hrColumn.setOnEditCommit(e->e.getTableView().getItems().get(e.getTablePosition().getRow()).setHr(e.getNewValue()));
-	        hrColumn.setReorderable(false);
-
-	        TableColumn<Entry, Integer> diffColumn = new TableColumn<>("Diff");
-	        diffColumn.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
-	        diffColumn.setCellValueFactory(new PropertyValueFactory<>("diff"));
-	        diffColumn.setOnEditCommit(e->e.getTableView().getItems().get(e.getTablePosition().getRow()).setDiff(e.getNewValue()));
-	        diffColumn.setReorderable(false);
-
-	        TableColumn<Entry, Boolean> fixedColumn = new TableColumn<>("Fixed");
-	     // Set the cell factory for the fixedColumn to use CheckBoxTableCell
-	        fixedColumn.setCellFactory(CheckBoxTableCell.forTableColumn(fixedColumn));
+	        TableColumn<CommentsEntry, String> CommentColumn = new TableColumn<>("Comment");
+	        CommentColumn.setCellValueFactory(new PropertyValueFactory<>("Comment"));
+	        CommentColumn.setReorderable(false);
 	        
-	        // Map the fixedColumn to the corresponding property in the Entry class
-	        fixedColumn.setCellValueFactory(cellData -> new SimpleBooleanProperty(cellData.getValue().getFixed()));
-	        fixedColumn.setOnEditCommit(e -> {
-	            Entry entry = e.getRowValue();
-	            entry.setFixed();
-	            System.out.println("EHE");
-	        });
-	        
-	        fixedColumn.setReorderable(false);
+	        TableColumn<CommentsEntry, Date> Post_DateColumn = new TableColumn<>("Post_Date");
+	        Post_DateColumn.setCellValueFactory(new PropertyValueFactory<>("Post_Date"));
+	        Post_DateColumn.setReorderable(false);
 
-	        tableView.getColumns().addAll(idColumn, nameColumn, deadlineColumn, hrColumn, diffColumn, fixedColumn);
-	        tableView.setEditable(true); 
-	        tableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+	        TableColumn<CommentsEntry, Time> Post_TimeColumn = new TableColumn<>("Post_Time");
+	        Post_TimeColumn.setCellValueFactory(new PropertyValueFactory<>("Post_Time"));
+	        Post_TimeColumn.setReorderable(false);
+
+	        tableView.getColumns().addAll(IDColumn, CommentColumn, Post_DateColumn, Post_TimeColumn);
+	        tableView.setEditable(false); 
 	        
 	        return tableView;
 		}
 
-		public void addRow(Entry e) {
+		public void addRow(CommentsEntry e) {
 			data.add(e);
-		}
-
-		public void removeRow(int row) {
-			runSQL("delete from " + tableName + " where id = " + data.get(row).getId(), true);
-			System.out.println("removing id " + data.get(row).getId() + " of name " + data.get(row).getName());
-			data.remove(row);
-		}
-		
-		public void removeRows(ObservableList<Integer> observableList) 
-		{
-			ArrayList<Integer> selectedList = new ArrayList<>(observableList);
-			Collections.sort(selectedList, Collections.reverseOrder());
-			
-			for (int i = 0; i < selectedList.size(); i++)
-				removeRow(selectedList.get(i));
 		}
 
 		public void loadTable() {
 			data.clear();
 			//loadTable(workTableSortedByCol);
-			runSQL("select * from " + tableName + ";", false);
+			runSQL("select * from " + reviewTableName + ";", false);
 			try {
-				while(rs.next())
-					data.add(new Entry(rs.getInt("id"),rs.getString("name"), rs.getDate("deadline").toLocalDate(), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed")));
-				//System.out.printf("%s:%s:%s\n", rs.getString("id"), rs.getString("name"), rs.getString("fixed"));
-				System.out.println("successfully imported mySQL workTable to JTable");
-			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
+				while(c.rs.next())
+					data.add(new CommentsEntry(c.rs.getInt("ID"),c.rs.getString("TEXT"), c.rs.getDate("Post_Date"), c.rs.getTime("Post_Time")));
+				
+				//System.out.printf("%s:%s:%s\n", c.rs.getString("id"), c.rs.getString("name"), c.rs.getString("fixed"));
+				System.out.println("successfully imported mySQL commentsTable to JTable");
+			} catch (SQLException e) {e.printStackTrace(); System.err.println("load commentsTable failed");}
 		}
 //		public void loadTable(int sortByCol) {
 //			workTableSortedByCol = sortByCol;
 //			setRowCount(0);
 //			runSQL("select * from " + tableName + " order by " + workColNames[sortByCol] + ";", false);
 //			try {
-//				while(rs.next())
-//					workModel.addRow(new Object[]{rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed")});
-//				//System.out.printf("%s:%s:%s\n", rs.getString("id"), rs.getString("name"), rs.getString("fixed"));
+//				while(c.rs.next())
+//					workModel.addRow(new Object[]{c.rs.getInt("id"),c.rs.getString("name"), c.rs.getDate("deadline"), c.rs.getDouble("hr"), c.rs.getInt("diff"), c.rs.getBoolean("fixed")});
+//				//System.out.printf("%s:%s:%s\n", c.rs.getString("id"), c.rs.getString("name"), c.rs.getString("fixed"));
 //				System.out.println("successfully imported mySQL workTable to JTable");
 //			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
 //		}
 	}
+
 	
 	///////////////////////////
 
@@ -557,10 +511,10 @@ public class GUI extends Application {
 			//loadTable(workTableSortedByCol);
 			runSQL("select * from " + reviewTableName + ";", false);
 			try {
-				while(rs.next())
-					data.add(new ReviewEntry(rs.getInt("id"),rs.getInt("classID"),classNames.get(rs.getInt("classID")), rs.getDouble("lectID"), rs.getDate("lecture").toLocalDate(), rs.getDate("deadline").toLocalDate(), rs.getDouble("hr"), rs.getBoolean("isDone")));
+				while(c.rs.next())
+					data.add(new ReviewEntry(c.rs.getInt("id"),c.rs.getInt("classID"),classNames.get(c.rs.getInt("classID")), c.rs.getDouble("lectID"), c.rs.getDate("lecture").toLocalDate(), c.rs.getDate("deadline").toLocalDate(), c.rs.getDouble("hr"), c.rs.getBoolean("isDone")));
 				
-				//System.out.printf("%s:%s:%s\n", rs.getString("id"), rs.getString("name"), rs.getString("fixed"));
+				//System.out.printf("%s:%s:%s\n", c.rs.getString("id"), c.rs.getString("name"), c.rs.getString("fixed"));
 				System.out.println("successfully imported mySQL workTable to JTable");
 			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
 		}
@@ -569,18 +523,14 @@ public class GUI extends Application {
 //			setRowCount(0);
 //			runSQL("select * from " + tableName + " order by " + workColNames[sortByCol] + ";", false);
 //			try {
-//				while(rs.next())
-//					workModel.addRow(new Object[]{rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed")});
-//				//System.out.printf("%s:%s:%s\n", rs.getString("id"), rs.getString("name"), rs.getString("fixed"));
+//				while(c.rs.next())
+//					workModel.addRow(new Object[]{c.rs.getInt("id"),c.rs.getString("name"), c.rs.getDate("deadline"), c.rs.getDouble("hr"), c.rs.getInt("diff"), c.rs.getBoolean("fixed")});
+//				//System.out.printf("%s:%s:%s\n", c.rs.getString("id"), c.rs.getString("name"), c.rs.getString("fixed"));
 //				System.out.println("successfully imported mySQL workTable to JTable");
 //			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
 //		}
 	}
 
-	private void removeWork(int id) {
-		runSQL("delete from " + tableName + " where id = " + id, true);
-		return;
-	}
 
 	private void removeReview(int id) {
 		runSQL("update " + reviewTableName + " set isDone = 1 where id = " + id, true);
@@ -594,27 +544,6 @@ public class GUI extends Application {
 			runSQL("update " + reviewTableName + " set hr = " + value + " where id = " + id, true);
 		editTasks=true;
 	}
-	private void updateWork(int id, int col, Object value) {
-		switch(col) {
-		case 1: 
-			runSQL("update " + tableName + " set name = \"" + value + "\" where id = " + id, true);
-			break;
-		case 2: 
-			runSQL("update " + tableName + " set deadline = \"" + value + "\" where id = " + id, true);
-			break;
-		case 3: 
-			runSQL("update " + tableName + " set hr = " + value + " where id = " + id, true);
-			break;
-		case 4: 
-			runSQL("update " + tableName + " set diff = " + value + " where id = " + id, true);
-			break;
-		case 5:
-			runSQL("update " + tableName + " set fixed = " + value + " where id = " + id, true);
-			break;
-		}	
-		editTasks=true;
-		return;
-	}
 
 	void showSelected(int index) { 
 		System.out.println("showSelected("+index+");");
@@ -624,9 +553,6 @@ public class GUI extends Application {
 
 		//		GridBagConstraints c = new GridBagConstraints();
 		//		show.setLayout(new GridBagLayout());
-
-
-
 
 		class checkWorkHandler implements EventHandler<ActionEvent> {
 			public void handle(ActionEvent event) {
@@ -639,10 +565,13 @@ public class GUI extends Application {
 
 						runSQL("select * from " + tableName + " where id = " + id, false);
 						try {
-							if (rs.next()) {
-								double durLeft = rs.getDouble("hr");
-								if (durLeft - durDone <= 0) removeWork(id);
-								else updateWork(id, 2, durLeft - durDone); //col 3 is hr
+							if (c.rs.next()) {
+								double durLeft = c.rs.getDouble("hr");
+								if (durLeft - durDone <= 0) workPane.removeWork(id);
+								else {
+									workPane.updateWork(id, 2, durLeft - durDone); //col 3 is hr
+									editTasks = true;
+								}
 							}
 						} catch (SQLException e) {e.printStackTrace();}
 
@@ -669,8 +598,8 @@ public class GUI extends Application {
 
 						runSQL("select * from " + reviewTableName + " where id = " + id, false);
 						try {
-							if (rs.next()) {
-								double durLeft = rs.getDouble("hr");
+							if (c.rs.next()) {
+								double durLeft = c.rs.getDouble("hr");
 								if (durLeft - durDone <= 0) removeReview(id);
 								else updateReview(id, 2, durLeft - durDone); //col 3 is hr
 							}
@@ -699,9 +628,9 @@ public class GUI extends Application {
 			runSQL("select * from " + tableName + " where id = " + assignWork.get(index).get(i).getKey() + ";", false);
 			Entry temp = null;
 			try {
-				if (rs.next()) {
-					LocalDate dueDate = rs.getDate("deadline").toLocalDate();
-					temp = new Entry(rs.getInt("id"), rs.getString("name"), dueDate, rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
+				if (c.rs.next()) {
+					LocalDate dueDate = c.rs.getDate("deadline").toLocalDate();
+					temp = new Entry(c.rs.getInt("id"), c.rs.getString("name"), dueDate, c.rs.getDouble("hr"), c.rs.getInt("diff"), c.rs.getBoolean("fixed"));
 					CheckBox b = new CheckBox(temp.name + ",  " + temp.hr + "h");
 					SimpleEntry<CheckBox, Integer> a = new SimpleEntry<CheckBox, Integer>(b, assignWork.get(index).get(i).getKey());
 					workChecks.add(a);
@@ -719,9 +648,9 @@ public class GUI extends Application {
 			runSQL("select * from " + reviewTableName + " where id = " + assignReview.get(index).get(i).getKey() + ";", false);
 			Entry temp = null;
 			try {
-				if (rs.next()) {
-					LocalDate dueDate = rs.getDate("deadline").toLocalDate();
-					temp = new Entry(rs.getInt("id"), classNames.get(rs.getInt("classID")) + " Lect " + rs.getString("lectID"), dueDate, rs.getDouble("hr"), 1, false);
+				if (c.rs.next()) {
+					LocalDate dueDate = c.rs.getDate("deadline").toLocalDate();
+					temp = new Entry(c.rs.getInt("id"), classNames.get(c.rs.getInt("classID")) + " Lect " + c.rs.getString("lectID"), dueDate, c.rs.getDouble("hr"), 1, false);
 					CheckBox b = new CheckBox(temp.name + ",  " + temp.hr + "h");
 					SimpleEntry<CheckBox, Integer> a = new SimpleEntry<CheckBox, Integer>(b, assignReview.get(index).get(i).getKey());
 					reviewChecks.add(a);
@@ -762,9 +691,6 @@ public class GUI extends Application {
 		return weekDayIdeal;
 	}
 
-	void printWork() {
-		workModel.loadTable();
-	}
 
 	void printBudget() {
 		LocalDate curr = today;
@@ -790,8 +716,8 @@ public class GUI extends Application {
 					runSQL("select * from " + tableName + " where id = " + assignWork.get(i).get(j).getKey() + ";", false);
 
 					try {
-						if (rs.next())
-							System.out.printf("%s\t%s\t%s\t%s/%s\t%s\t%s\n",rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), assignWork.get(i).get(j).getValue(),rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
+						if (c.rs.next())
+							System.out.printf("%s\t%s\t%s\t%s/%s\t%s\t%s\n",c.rs.getInt("id"),c.rs.getString("name"), c.rs.getDate("deadline"), assignWork.get(i).get(j).getValue(),c.rs.getDouble("hr"), c.rs.getInt("diff"), c.rs.getBoolean("fixed"));
 					} catch (SQLException e) {e.printStackTrace();}
 				}
 				System.out.print("\n\t" + hrsLeft.get(i) + "h out of " + breakBudget.get(i) + "h free\n\n");
@@ -806,8 +732,8 @@ public class GUI extends Application {
 					runSQL("select * from " + tableName + " where id = " + assignWork.get(i).get(j).getKey() + ";", false);
 
 					try {
-						if (rs.next())
-							System.out.printf("%s\t%s\t%s\t%s/%s\t%s\t%s\n",rs.getInt("id"),rs.getString("name"), rs.getDate("deadline"), assignWork.get(i).get(j).getValue(),rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
+						if (c.rs.next())
+							System.out.printf("%s\t%s\t%s\t%s/%s\t%s\t%s\n",c.rs.getInt("id"),c.rs.getString("name"), c.rs.getDate("deadline"), assignWork.get(i).get(j).getValue(),c.rs.getDouble("hr"), c.rs.getInt("diff"), c.rs.getBoolean("fixed"));
 					} catch (SQLException e) {e.printStackTrace();}
 				}
 				System.out.print("\n\t" + hrsLeft.get(i) + "h out of " + budget.get(i) + "h free\n\n");
@@ -836,11 +762,11 @@ public class GUI extends Application {
 
 		//List<Integer> reviewToDo = new ArrayList<Integer>(); //make it very last priority
 		try {
-			while (rs.next()) {
-				LocalDate dueDate = rs.getDate("deadline").toLocalDate();
-				Entry temp = new Entry(rs.getInt("id"), rs.getString("name"), dueDate, rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
+			while (c.rs.next()) {
+				LocalDate dueDate = c.rs.getDate("deadline").toLocalDate();
+				Entry temp = new Entry(c.rs.getInt("id"), c.rs.getString("name"), dueDate, c.rs.getDouble("hr"), c.rs.getInt("diff"), c.rs.getBoolean("fixed"));
 
-				int id = rs.getInt("id");
+				int id = c.rs.getInt("id");
 				//if (work.get(i) instanceof ReviewEntry) reviewToDo.add(i); //deal with all review entries at end less priority than true deadlines
 				//else 
 				System.out.println("assignEntry(" + id + ", f);");
@@ -856,10 +782,10 @@ public class GUI extends Application {
 		runSQL("select * from " + reviewTableName + " order by deadline", false);
 
 		try {
-			while (rs.next() && (LocalDate.parse(rs.getString("lecture")).isBefore(today) || LocalDate.parse(rs.getString("lecture")).isEqual(today))) {
-				if (rs.getBoolean("isDone") == true) continue;
-				LocalDate dueDate = rs.getDate("deadline").toLocalDate();
-				Entry temp = new Entry(rs.getInt("id"), rs.getString("classID") + " " + rs.getString("lectID"), LocalDate.parse(rs.getString("deadline")), rs.getDouble("hr"), 1, false);
+			while (c.rs.next() && (LocalDate.parse(c.rs.getString("lecture")).isBefore(today) || LocalDate.parse(c.rs.getString("lecture")).isEqual(today))) {
+				if (c.rs.getBoolean("isDone") == true) continue;
+				LocalDate dueDate = c.rs.getDate("deadline").toLocalDate();
+				Entry temp = new Entry(c.rs.getInt("id"), c.rs.getString("classID") + " " + c.rs.getString("lectID"), LocalDate.parse(c.rs.getString("deadline")), c.rs.getDouble("hr"), 1, false);
 
 
 
@@ -1174,7 +1100,7 @@ public class GUI extends Application {
 			doGenerate = true;
 		} else {
 			try {
-				if (!rs.next()) doGenerate = true; //empty
+				if (!c.rs.next()) doGenerate = true; //empty
 			} catch (SQLException e) {e.printStackTrace();}
 		}
 
@@ -1245,25 +1171,25 @@ public class GUI extends Application {
 //		workModel.setRowCount(0); //clear the workTable
 //		runSQL("select * from " + tableName + " ", false);
 //		try {
-//			while(rs.next()) {
-//				workModel.addRow(new Object[]{rs.getInt("id"), rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed")});
-//				System.out.printf("%s\t%s\t%s\t%s\t%s\t%s\n", rs.getInt("id"), rs.getString("name"), rs.getDate("deadline"), rs.getDouble("hr"), rs.getInt("diff"), rs.getBoolean("fixed"));
+//			while(c.rs.next()) {
+//				workModel.addRow(new Object[]{c.rs.getInt("id"), c.rs.getString("name"), c.rs.getDate("deadline"), c.rs.getDouble("hr"), c.rs.getInt("diff"), c.rs.getBoolean("fixed")});
+//				System.out.printf("%s\t%s\t%s\t%s\t%s\t%s\n", c.rs.getInt("id"), c.rs.getString("name"), c.rs.getDate("deadline"), c.rs.getDouble("hr"), c.rs.getInt("diff"), c.rs.getBoolean("fixed"));
 //			}
 //			System.out.println("successfully imported mySQL workTable to JTable");
-//		} catch (SQLException e) {e.printStackTrace(); System.err.println("B rs.next() failed");}
+//		} catch (SQLException e) {e.printStackTrace(); System.err.println("B c.rs.next() failed");}
 //	}
 
 	int runSQL(String query, boolean loadTable) {
 		if (query.indexOf("select") == 0) {
 			try {
-				rs = st.executeQuery(query);
+				c.rs = c.st.executeQuery(query);
 				System.out.println(query + " was successful");
 				return 0;
 			} catch (SQLException e) {e.printStackTrace(); System.err.println(query + " failed"); return -1;}
 		}
 		else {
 			try {
-				st.executeUpdate(query);
+				c.st.executeUpdate(query);
 				System.out.println(query + " was successful");
 				if (loadTable) {
 					//					workModel.loadTable();
@@ -1344,7 +1270,8 @@ public class GUI extends Application {
 			return String.format("\"" + name + "\"\t" + diff + "\t" + hr + "\t" + formatter.format(deadline) + "\t" + fixed);
 		}
 	}
-
+	
+	
 	public class ReviewEntry {
 		private int id;
 		private int classID;
@@ -1396,4 +1323,25 @@ public class GUI extends Application {
 	}
 
 
+	public class CommentsEntry {
+		private int ID;
+		private String Comment;
+		private Date Post_Date;
+		private Time Post_Time;
+
+		CommentsEntry(int ID, String Comment, Date Post_Date, Time Post_Time) {
+			this.ID = ID;
+			this.Comment = Comment;
+			this.Post_Date = Post_Date;
+			this.Post_Time = Post_Time;
+		}
+
+		public int getID() {return ID;}
+		
+		public String getComment() {return Comment;}
+		
+		public Date getPost_Date() {return Post_Date;}
+		
+		public Time getPost_Time() {return Post_Time;}
+	}
 }
