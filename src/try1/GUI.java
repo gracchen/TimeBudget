@@ -18,7 +18,6 @@ import java.util.Scanner;
 
 import javafx.application.Application;
 import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -29,11 +28,10 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
-import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
@@ -41,7 +39,8 @@ import javafx.stage.Stage;
 public class GUI extends Application {
 	//	private JPanel home, tasks, settings;
 	private FlowPane home;
-	GridPane tasks, comments;
+	private GridPane tasks;
+	private BorderPane comments;
 	private FlowPane settings;
 	private List<LocalDate> week;
 	private List<Double> breakBudget, budget, hrsLeft; //break vs non-break budget
@@ -58,45 +57,47 @@ public class GUI extends Application {
 	private ComboBox<String> drop;
 	private GridPane show;
 	private Label stats;
-	Label play;
-	Label leet;
-	List<SimpleEntry<CheckBox, Integer>> workChecks;
+	private Label play;
+	private Label leet;
+	private List<SimpleEntry<CheckBox, Integer>> workChecks;
 	private List<SimpleEntry<CheckBox, Integer>> reviewChecks;
 	private TabPane tabPane;
 	private LocalDate week1 = LocalDate.of(2023, 4, 3); //spring quarter instruction starts April 3, this is dummy test var
-	WorkTablePane workPane;
-	ReviewTablePane reviewPane; 
+	private WorkTablePane workPane;
+	private ReviewTablePane reviewPane; 
 	private boolean editTasks = false;
 	private Label clickCol;
 	private FlowPane taskToolBar, commentBar; Button delete;
-	private Button add;
+	private Button add,addCommentButton;
 	private double hrsOnHwToday;
 	private LocalDate today;
 	public Connect c;
 	private String tableName = "time";
 	private String reviewTableName = "review";
 	private boolean createPopupOpen = false;
+	private boolean commentPopupOpen = false;
 	private List<String> classNames = new LinkedList<String>();
+	private CommentTablePane commentPane;
+	private String commentTableName = "comments";
 
 	public static void main(String[] args) {
 		launch(args);
 	}
-
 	public void start(Stage primaryStage) {
 		c = new Connect();
-		
+
 		today = LocalDate.now();
 
 		home = new FlowPane();
 		tasks = new GridPane();
-		comments = new GridPane();
+		comments = new BorderPane();
 		settings = new FlowPane();
 
 		tabPane = new TabPane();
 		Tab homeTab = new Tab("Home", home);
 		tabPane.getTabs().add(homeTab);
 		tabPane.getTabs().add(new Tab("Tasks", tasks));
-		tabPane.getTabs().add(new Tab("Comments", comments));
+		tabPane.getTabs().add(new Tab("Comment", comments));
 		tabPane.getTabs().add(new Tab("Settings", settings));
 
 		homeTab.setOnSelectionChanged(e -> {
@@ -189,10 +190,8 @@ public class GUI extends Application {
 		
 		//COMMENTS
 		commentBar = new FlowPane();
-		comments.add(commentBar, 0, 0);
+		comments.setTop(commentBar);
 		
-		
-
 		//TASKS = two panels, toolbar and workTable itself
 		//toolbar:
 		taskToolBar = new FlowPane(); 
@@ -207,10 +206,15 @@ public class GUI extends Application {
 
 		//new entry window
 		GridPane newEntry = new GridPane(); 
+		BorderPane newComment = new BorderPane(); 
 		Scene scene1 = new Scene(newEntry, 400, 300);
+		Scene scene2 = new Scene(newComment, 400, 300);
 		Stage stage1 = new Stage();
+		Stage stage2 = new Stage();
 		stage1.setTitle("Create a new work entry");
 		stage1.setScene(scene1);
+		stage2.setTitle("Create a new comment");
+		stage2.setScene(scene2);
 		//stage1.show();
 
 		TextField nField = new TextField();
@@ -263,6 +267,13 @@ public class GUI extends Application {
 		taskToolBar.setHgap(10);
 		taskToolBar.setVgap(30);
 		taskToolBar.setPadding(new Insets(15,15,15,15));
+		
+		Button confirmCommentButton = new Button("Create");
+		newComment.setBottom(confirmCommentButton);
+		TextArea cField = new TextArea();
+		cField.setWrapText(true);
+		newComment.setCenter(cField);
+		
 		newEntry.add(nField, 0, 0);
 		newEntry.add(deField, 0, 1);
 		newEntry.add(duField, 0, 2);
@@ -271,6 +282,7 @@ public class GUI extends Application {
 		//s.fill = GridBagConstraints.NONE;
 		newEntry.add(k, 1, 3);
 		stage1.setOnHiding( event -> {System.out.println("Hiding Stage"); createPopupOpen = false;} );
+		stage2.setOnHiding( event -> {System.out.println("Hiding Stage");  cField.setText(""); commentPopupOpen = false;} );
 
 		add.setOnAction( e-> { //show creation popup if not yet open
 						if (!createPopupOpen) {
@@ -297,6 +309,31 @@ public class GUI extends Application {
 		reviewPane = new ReviewTablePane(reviewTableName, classNames, this);
 		tasks.add(reviewPane.getScrollPane(), 1,1);
 		
+		//COMMENT TABLE:
+		addCommentButton = new Button("Add Comment");
+		addCommentButton.setStyle("-fx-background-color: #23db35");
+		commentBar.getChildren().add(addCommentButton);
+		
+		addCommentButton.setOnAction( e-> { //show creation popup if not yet open
+			if (!commentPopupOpen) {
+				commentPopupOpen = true;
+				newComment.setVisible(true);
+				stage2.show();
+			}
+	}
+);
+		
+		confirmCommentButton.setOnAction(e -> { //create the entry
+			commentPopupOpen = false;
+			commentPane.addComment(cField.getText());
+			cField.setText("");
+			stage2.hide();
+		});
+		
+		//addComment
+		commentPane = new CommentTablePane(commentTableName, this);
+		comments.setCenter(commentPane.getScrollPane());
+		
 		show = new GridPane();
 		home.getChildren().add(show);	
 		home.setAlignment(Pos.TOP_CENTER); 
@@ -309,40 +346,6 @@ public class GUI extends Application {
 
 	}
 	
-	private class CommentsTable {
-		private ObservableList<CommentsEntry> data;
-		
-		public TableView<CommentsEntry> createTableView() {
-			data = FXCollections.observableArrayList();
-			TableView<CommentsEntry> tableView = new TableView<CommentsEntry>(data);
-
-	        TableColumn<CommentsEntry, Integer> IDColumn = new TableColumn<>("ID");
-	        IDColumn.setCellValueFactory(new PropertyValueFactory<>("ID"));
-	        IDColumn.setReorderable(false);
-	        
-	        TableColumn<CommentsEntry, String> CommentColumn = new TableColumn<>("Comment");
-	        CommentColumn.setCellValueFactory(new PropertyValueFactory<>("Comment"));
-	        CommentColumn.setReorderable(false);
-	        
-	        TableColumn<CommentsEntry, Date> Post_DateColumn = new TableColumn<>("Post_Date");
-	        Post_DateColumn.setCellValueFactory(new PropertyValueFactory<>("Post_Date"));
-	        Post_DateColumn.setReorderable(false);
-
-	        TableColumn<CommentsEntry, Time> Post_TimeColumn = new TableColumn<>("Post_Time");
-	        Post_TimeColumn.setCellValueFactory(new PropertyValueFactory<>("Post_Time"));
-	        Post_TimeColumn.setReorderable(false);
-
-	        tableView.getColumns().addAll(IDColumn, CommentColumn, Post_DateColumn, Post_TimeColumn);
-	        tableView.setEditable(false); 
-	        
-	        return tableView;
-		}
-
-		public void addRow(CommentsEntry e) {
-			data.add(e);
-		}
-	}
-
 	void showSelected(int index) { 
 		System.out.println("showSelected("+index+");");
 		//shows both leetcode + play and assigned stuff
@@ -967,18 +970,6 @@ public class GUI extends Application {
 		}
 	}
 
-//	void loadTable() {
-//		workModel.setRowCount(0); //clear the workTable
-//		runSQL("select * from " + tableName + " ", false);
-//		try {
-//			while(c.rs.next()) {
-//				workModel.addRow(new Object[]{c.rs.getInt("id"), c.rs.getString("name"), c.rs.getDate("deadline"), c.rs.getDouble("hr"), c.rs.getInt("diff"), c.rs.getBoolean("fixed")});
-//				System.out.printf("%s\t%s\t%s\t%s\t%s\t%s\n", c.rs.getInt("id"), c.rs.getString("name"), c.rs.getDate("deadline"), c.rs.getDouble("hr"), c.rs.getInt("diff"), c.rs.getBoolean("fixed"));
-//			}
-//			System.out.println("successfully imported mySQL workTable to JTable");
-//		} catch (SQLException e) {e.printStackTrace(); System.err.println("B c.rs.next() failed");}
-//	}
-
 	int runSQL(String query, boolean loadTable) {
 		if (query.indexOf("select") == 0) {
 			try {
@@ -1123,13 +1114,13 @@ public class GUI extends Application {
 	}
 
 
-	public class CommentsEntry {
+	public class CommentEntry {
 		private int ID;
 		private String Comment;
 		private Date Post_Date;
 		private Time Post_Time;
 
-		CommentsEntry(int ID, String Comment, Date Post_Date, Time Post_Time) {
+		CommentEntry(int ID, String Comment, Date Post_Date, Time Post_Time) {
 			this.ID = ID;
 			this.Comment = Comment;
 			this.Post_Date = Post_Date;

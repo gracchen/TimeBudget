@@ -24,7 +24,7 @@ public class ReviewTablePane {
 	private GUI g;
 	private Connect c;
 	private ReviewTable reviewTable;
-	private String reviewTableName;
+	private String tableName;
 	private TableView<ReviewEntry> reviewTableView;
 	private ScrollPane pane;
 	private List<String> classNames = new LinkedList<String>();
@@ -33,7 +33,7 @@ public class ReviewTablePane {
 		this.g = g;
 		this.c = g.c;
 		classNames = names;
-		reviewTableName = name;
+		tableName = name;
 		reviewTable = new ReviewTable();
 		reviewTableView = reviewTable.createTableView();
 		reviewTable.loadTable();
@@ -42,15 +42,15 @@ public class ReviewTablePane {
 		pane.setFitToHeight(true);
 	}
 	public void removeReview(int id) {
-		g.runSQL("update " + reviewTableName + " set isDone = 1 where id = " + id, true);
+		g.runSQL("update " + tableName + " set isDone = 1 where id = " + id, true);
 		return;
 	}
 
 	public void updateReview(int id, int col, Object value) {
 		if (col == 7)
-			g.runSQL("update " + reviewTableName + " set isDone = " + value + " where id = " + id, true);
+			g.runSQL("update " + tableName + " set isDone = " + value + " where id = " + id, true);
 		else
-			g.runSQL("update " + reviewTableName + " set hr = " + value + " where id = " + id, true);
+			g.runSQL("update " + tableName + " set hr = " + value + " where id = " + id, true);
 	}
 	
 	public ScrollPane getScrollPane() {
@@ -114,7 +114,7 @@ public class ReviewTablePane {
 
 		
 		public void removeRow(int row) {
-			g.runSQL("delete from " + reviewTableName + " where id = " + data.get(row).getId(), true);
+			g.runSQL("delete from " + tableName + " where id = " + data.get(row).getId(), true);
 			System.out.println("removing id " + data.get(row).getId() + " of name " + data.get(row).getClass());
 			data.remove(row);
 		}
@@ -131,7 +131,7 @@ public class ReviewTablePane {
 		public void loadTable() {
 			data.clear();
 			//loadTable(workTableSortedByCol);
-			g.runSQL("select * from " + reviewTableName + ";", false);
+			g.runSQL("select * from " + tableName + ";", false);
 			try {
 				while(c.rs.next())
 					data.add(new ReviewEntry(c.rs.getInt("id"),c.rs.getInt("classID"),classNames.get(c.rs.getInt("classID")), c.rs.getDouble("lectID"), c.rs.getDate("lecture").toLocalDate(), c.rs.getDate("deadline").toLocalDate(), c.rs.getDouble("hr"), c.rs.getBoolean("isDone")));
@@ -166,7 +166,7 @@ public class ReviewTablePane {
 				{
 					System.out.println(">" + oldValue + "-->" + newValue);
 					this.isDone.set(newValue); //flip value locally
-					g.runSQL("update " + reviewTableName + " set isDone = " + newValue + " where id = " + id, true); //and remotely
+					g.runSQL("update " + tableName + " set isDone = " + newValue + " where id = " + id, true); //and remotely
 				}
 			});
 		}
@@ -187,7 +187,7 @@ public class ReviewTablePane {
 		
 		public void setHr(Double newValue) {
 			hr = newValue;
-			g.runSQL("update " + reviewTableName + " set hr = " + newValue + " where id = " + id, true);
+			g.runSQL("update " + tableName + " set hr = " + newValue + " where id = " + id, true);
 		}
 		
 		public boolean getIsDone() {return isDone.get();}
