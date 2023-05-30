@@ -1,23 +1,9 @@
 package try1;
 import javafx.scene.control.CheckBox;
-import java.awt.FlowLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Point;
-
-import java.awt.event.ActionListener;
-import java.awt.event.ItemEvent;
-import java.awt.event.ItemListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.sql.Connection;
 import java.sql.Date;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Time;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -30,19 +16,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
 
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JTabbedPane;
-import javax.swing.JTable;
-import javax.swing.JTextField;
-import javax.swing.table.DefaultTableModel;
-
 import javafx.application.Application;
-import javafx.application.Platform;
-import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -53,30 +27,18 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
-import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
-import javafx.util.converter.DoubleStringConverter;
-import javafx.util.converter.IntegerStringConverter;
-import javafx.util.converter.LocalDateStringConverter;
-import try1.WorkTablePane;
-import try1.Connect;
 
 public class GUI extends Application {
-	private String[] workColNames = {"id", "name", "deadline", "hr", "diff", "fixed"};
-	private String[] reviewColNames = {"id", "classID", "lectID", "lecture", "deadline", "hr", "isDone"};
 	//	private JPanel home, tasks, settings;
 	private FlowPane home;
 	GridPane tasks, comments;
@@ -86,7 +48,6 @@ public class GUI extends Application {
 	private List<List<SimpleEntry<Integer, Double>>> assignWork; //id + length
 	private List<List<SimpleEntry<Integer, Double>>> assignReview; //id + length
 	private TextField msg;
-	private static final long serialVersionUID = 1L;
 	private File dayOfWeekConstFile, dailyConstFile, reviewClassesFile;
 	private double consts[], daily;
 	private DateTimeFormatter formatter;
@@ -104,22 +65,18 @@ public class GUI extends Application {
 	private TabPane tabPane;
 	private LocalDate week1 = LocalDate.of(2023, 4, 3); //spring quarter instruction starts April 3, this is dummy test var
 	WorkTablePane workPane;
-	private ReviewTable reviewTable; 
+	ReviewTablePane reviewPane; 
 	private boolean editTasks = false;
 	private Label clickCol;
 	private FlowPane taskToolBar, commentBar; Button delete;
 	private Button add;
 	private double hrsOnHwToday;
 	private LocalDate today;
-	private Connect c;
+	public Connect c;
 	private String tableName = "time";
 	private String reviewTableName = "review";
-	private ReviewTable reviewModel;
 	private boolean createPopupOpen = false;
-	private int workTableSortedByCol = 0;
-	private int reviewTableSortedByCol = 0;
-
-	List<String> classNames = new LinkedList<String>();
+	private List<String> classNames = new LinkedList<String>();
 
 	public static void main(String[] args) {
 		launch(args);
@@ -322,17 +279,11 @@ public class GUI extends Application {
 							stage1.show();
 						}
 				}
-				);
-
-		//workTable:
-		
-		workPane = new WorkTablePane(tableName);
-		delete.setOnAction(event -> {
-			workPane.removeSelected();
-		}
 		);
 
-		//workTable.getTableHeader().setReorderingAllowed(false);
+		//WORK Table:
+		workPane = new WorkTablePane(tableName, this);
+		delete.setOnAction(event -> {workPane.removeSelected();});
 		tasks.add(workPane.getScrollPane(), 0,1);
 		
 				/*
@@ -343,22 +294,8 @@ public class GUI extends Application {
 				 */
 		
 		//REVIEW TABLE
-		reviewTable = new ReviewTable();
-		TableView<ReviewEntry> reviewTableView = reviewTable.createTableView();
-		reviewTable.loadTable();
-		delete.setOnAction(event -> {
-			reviewTable.removeRows(reviewTableView.getSelectionModel().getSelectedIndices());
-		}
-				);
-		//workTable.getTableHeader().setReorderingAllowed(false);
-		ScrollPane scrollPane2 = new ScrollPane(reviewTableView);
-		tasks.add(scrollPane2, 1,1);
-		scrollPane2.setFitToWidth(true);
-		scrollPane2.setFitToHeight(true);
-		
-		//workTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-		System.out.println("\nNow Printing Work[]: ");
-		//printWork();
+		reviewPane = new ReviewTablePane(reviewTableName, classNames, this);
+		tasks.add(reviewPane.getScrollPane(), 1,1);
 		
 		show = new GridPane();
 		home.getChildren().add(show);	
@@ -404,145 +341,6 @@ public class GUI extends Application {
 		public void addRow(CommentsEntry e) {
 			data.add(e);
 		}
-
-		public void loadTable() {
-			data.clear();
-			//loadTable(workTableSortedByCol);
-			runSQL("select * from " + reviewTableName + ";", false);
-			try {
-				while(c.rs.next())
-					data.add(new CommentsEntry(c.rs.getInt("ID"),c.rs.getString("TEXT"), c.rs.getDate("Post_Date"), c.rs.getTime("Post_Time")));
-				
-				//System.out.printf("%s:%s:%s\n", c.rs.getString("id"), c.rs.getString("name"), c.rs.getString("fixed"));
-				System.out.println("successfully imported mySQL commentsTable to JTable");
-			} catch (SQLException e) {e.printStackTrace(); System.err.println("load commentsTable failed");}
-		}
-//		public void loadTable(int sortByCol) {
-//			workTableSortedByCol = sortByCol;
-//			setRowCount(0);
-//			runSQL("select * from " + tableName + " order by " + workColNames[sortByCol] + ";", false);
-//			try {
-//				while(c.rs.next())
-//					workModel.addRow(new Object[]{c.rs.getInt("id"),c.rs.getString("name"), c.rs.getDate("deadline"), c.rs.getDouble("hr"), c.rs.getInt("diff"), c.rs.getBoolean("fixed")});
-//				//System.out.printf("%s:%s:%s\n", c.rs.getString("id"), c.rs.getString("name"), c.rs.getString("fixed"));
-//				System.out.println("successfully imported mySQL workTable to JTable");
-//			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
-//		}
-	}
-
-	
-	///////////////////////////
-
-	private class ReviewTable {
-		private ObservableList<ReviewEntry> data;
-		
-		public TableView<ReviewEntry> createTableView() {
-			data = FXCollections.observableArrayList();
-			TableView<ReviewEntry> tableView = new TableView<ReviewEntry>(data);
-
-	        TableColumn<ReviewEntry, Integer> idColumn = new TableColumn<>("ID");
-	        idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
-	        idColumn.setReorderable(false);
-	        
-	        TableColumn<ReviewEntry, Integer> classIDColumn = new TableColumn<>("classID");
-	        classIDColumn.setCellValueFactory(new PropertyValueFactory<>("classID"));
-	        classIDColumn.setReorderable(false);
-
-	        TableColumn<ReviewEntry, String> classColumn = new TableColumn<>("Class");
-	        classColumn.setCellValueFactory(new PropertyValueFactory<>("className"));
-	        classColumn.setReorderable(false);
-	        
-	        TableColumn<ReviewEntry, Double> lectIDColumn = new TableColumn<>("lectID");
-	        lectIDColumn.setCellValueFactory(new PropertyValueFactory<>("lectID"));
-	        lectIDColumn.setReorderable(false);
-
-	        TableColumn<ReviewEntry, LocalDate> lectureColumn = new TableColumn<>("Lecture");
-	        lectureColumn.setCellValueFactory(new PropertyValueFactory<>("lecture"));
-	        lectureColumn.setReorderable(false);
-
-	        TableColumn<ReviewEntry, LocalDate> deadlineColumn = new TableColumn<>("Deadline");
-	        deadlineColumn.setCellValueFactory(new PropertyValueFactory<>("deadline"));
-	        deadlineColumn.setReorderable(false);
-
-	        TableColumn<ReviewEntry, Double> hrColumn = new TableColumn<>("Hr");
-	        hrColumn.setCellFactory(TextFieldTableCell.forTableColumn(new DoubleStringConverter()));
-	        hrColumn.setCellValueFactory(new PropertyValueFactory<>("hr"));
-	        hrColumn.setOnEditCommit(e->e.getTableView().getItems().get(e.getTablePosition().getRow()).setHr(e.getNewValue()));
-	        hrColumn.setReorderable(false);
-
-	        TableColumn<ReviewEntry, Boolean> doneColumn = new TableColumn<>("IsDone");
-	        doneColumn.setCellFactory(CheckBoxTableCell.forTableColumn(doneColumn));
-	        doneColumn.setCellValueFactory(cellData -> new SimpleBooleanProperty(cellData.getValue().getIsDone()));
-	        doneColumn.setOnEditCommit(e -> {
-	            ReviewEntry entry = e.getRowValue();
-	            entry.setIsDone();
-	            System.out.println("EHE");
-	        });
-	        doneColumn.setReorderable(false);
-
-	        tableView.getColumns().addAll(idColumn, classIDColumn, classColumn, lectIDColumn,lectureColumn, deadlineColumn, hrColumn, doneColumn);
-	        tableView.setEditable(true); 
-	        tableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-	        
-	        return tableView;
-		}
-
-		public void addRow(ReviewEntry e) {
-			data.add(e);
-		}
-
-		public void removeRow(int row) {
-			runSQL("delete from " + reviewTableName + " where id = " + data.get(row).getId(), true);
-			System.out.println("removing id " + data.get(row).getId() + " of name " + data.get(row).getClass());
-			data.remove(row);
-		}
-		
-		public void removeRows(ObservableList<Integer> observableList) 
-		{
-			ArrayList<Integer> selectedList = new ArrayList<>(observableList);
-			Collections.sort(selectedList, Collections.reverseOrder());
-			
-			for (int i = 0; i < selectedList.size(); i++)
-				removeRow(selectedList.get(i));
-		}
-
-		public void loadTable() {
-			data.clear();
-			//loadTable(workTableSortedByCol);
-			runSQL("select * from " + reviewTableName + ";", false);
-			try {
-				while(c.rs.next())
-					data.add(new ReviewEntry(c.rs.getInt("id"),c.rs.getInt("classID"),classNames.get(c.rs.getInt("classID")), c.rs.getDouble("lectID"), c.rs.getDate("lecture").toLocalDate(), c.rs.getDate("deadline").toLocalDate(), c.rs.getDouble("hr"), c.rs.getBoolean("isDone")));
-				
-				//System.out.printf("%s:%s:%s\n", c.rs.getString("id"), c.rs.getString("name"), c.rs.getString("fixed"));
-				System.out.println("successfully imported mySQL workTable to JTable");
-			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
-		}
-//		public void loadTable(int sortByCol) {
-//			workTableSortedByCol = sortByCol;
-//			setRowCount(0);
-//			runSQL("select * from " + tableName + " order by " + workColNames[sortByCol] + ";", false);
-//			try {
-//				while(c.rs.next())
-//					workModel.addRow(new Object[]{c.rs.getInt("id"),c.rs.getString("name"), c.rs.getDate("deadline"), c.rs.getDouble("hr"), c.rs.getInt("diff"), c.rs.getBoolean("fixed")});
-//				//System.out.printf("%s:%s:%s\n", c.rs.getString("id"), c.rs.getString("name"), c.rs.getString("fixed"));
-//				System.out.println("successfully imported mySQL workTable to JTable");
-//			} catch (SQLException e) {e.printStackTrace(); System.err.println("load workTable failed");}
-//		}
-	}
-
-
-	private void removeReview(int id) {
-		runSQL("update " + reviewTableName + " set isDone = 1 where id = " + id, true);
-		return;
-	}
-
-	private void updateReview(int id, int col, Object value) {
-		if (col == 7)
-			runSQL("update " + reviewTableName + " set isDone = " + value + " where id = " + id, true);
-		else
-			runSQL("update " + reviewTableName + " set hr = " + value + " where id = " + id, true);
-		editTasks=true;
 	}
 
 	void showSelected(int index) { 
@@ -600,8 +398,11 @@ public class GUI extends Application {
 						try {
 							if (c.rs.next()) {
 								double durLeft = c.rs.getDouble("hr");
-								if (durLeft - durDone <= 0) removeReview(id);
-								else updateReview(id, 2, durLeft - durDone); //col 3 is hr
+								if (durLeft - durDone <= 0) reviewPane.removeReview(id);
+								else {
+									reviewPane.updateReview(id, 2, durLeft - durDone); //col 3 is hr
+									editTasks = true;
+								}
 							}
 						} catch (SQLException e) {e.printStackTrace();}
 
@@ -690,7 +491,6 @@ public class GUI extends Application {
 		if (y == 5 || y == 6) return weekEndIdeal;
 		return weekDayIdeal;
 	}
-
 
 	void printBudget() {
 		LocalDate curr = today;

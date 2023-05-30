@@ -10,6 +10,6 @@ module TimeBudget {
 	requires java.desktop;
 	requires java.sql;
 	requires transitive javafx.graphics;
-	requires javafx.controls;
+	requires transitive javafx.controls;
 	requires javafx.base;
 }
